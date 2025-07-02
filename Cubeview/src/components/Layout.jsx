@@ -19,7 +19,8 @@ import { cn } from "../lib/utils";
 
 const navItems = [
   { icon: <Home size={20} />, label: "Dashboard", path: "/dashboard" },
-  { icon: <Table size={20} />, label: "Datasets", path: "/datasets" },
+    { icon: <Table size={20} />, label: "Table Explorer", path: "/table-explorer" },  // ✅ New
+
   { icon: <AlertTriangle size={20} />, label: "Incidents", path: "/incidents" },
   { icon: <CheckCircle size={20} />, label: "Quality Checks", path: "/quality-checks" },
   { icon: <Tags size={20} />, label: "Tags", path: "/tags" },

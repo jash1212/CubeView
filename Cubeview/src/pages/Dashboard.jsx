@@ -3,19 +3,19 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import axios from "axios";
+import api from "@/api";
 import {
   PieChart,
   Pie,
   Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#00C49F", "#FFBB28"];
 
 const Dashboard = () => {
+  const [connectionInfo, setConnectionInfo] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [healthScore, setHealthScore] = useState(null);
@@ -28,14 +28,15 @@ const Dashboard = () => {
     fetchHealthScore();
     fetchIncidents();
     fetchIncidentSummary();
+    fetchConnectionInfo();
   }, []);
 
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get("/api/dashboard_data/");
+      const res = await api.get("/api/dashboard-data/");
       setSummary(res.data);
     } catch (err) {
-      console.error("Failed to fetch dashboard data", err);
+      console.error("❌ Failed to fetch dashboard data", err);
     } finally {
       setLoading(false);
     }
@@ -43,46 +44,54 @@ const Dashboard = () => {
 
   const fetchHealthScore = async () => {
     try {
-      const res = await axios.get("/api/health_score/");
+      const res = await api.get("/api/health-score/");
       setHealthScore(res.data);
     } catch (err) {
-      console.error("Failed to fetch health score", err);
+      console.error("❌ Failed to fetch health score", err);
     }
   };
 
   const fetchIncidents = async () => {
     try {
-      const res = await axios.get("/api/recent_incidents/");
-      const data = Array.isArray(res.data) ? res.data : [];
-      setIncidents(data);
+      const res = await api.get("/api/recent-incidents/");
+      setIncidents(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Failed to fetch incidents", err);
+      console.error("❌ Failed to fetch incidents", err);
       setIncidents([]);
     }
   };
 
   const fetchIncidentSummary = async () => {
     try {
-      const res = await axios.get("/api/incident_summary/");
+      const res = await api.get("/api/incident-summary/");
       const formatted = Object.entries(res.data).map(([type, count]) => ({
         type,
         count,
       }));
       setIncidentSummary(formatted);
     } catch (err) {
-      console.error("Failed to fetch incident summary", err);
+      console.error("❌ Failed to fetch incident summary", err);
+    }
+  };
+
+  const fetchConnectionInfo = async () => {
+    try {
+      const res = await api.get("/api/get-db/");
+      setConnectionInfo(res.data);
+    } catch (err) {
+      console.error("❌ Failed to fetch database info", err);
     }
   };
 
   const runChecks = async () => {
     setRefreshing(true);
     try {
-      await axios.post("/api/run_quality_checks/");
+      await api.post("/api/run-quality-checks/");
       await fetchDashboard();
       await fetchHealthScore();
       await fetchIncidents();
     } catch (err) {
-      console.error("Failed to run checks", err);
+      console.error("❌ Failed to run checks", err);
     } finally {
       setRefreshing(false);
     }
@@ -100,6 +109,19 @@ const Dashboard = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {connectionInfo && (
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-sm text-gray-500">📡 Connected Database</p>
+                <p className="text-sm text-gray-500">Name: <span className="font-semibold">{connectionInfo.name}</span></p>
+                <p className="text-sm text-gray-500">Host: <span className="font-semibold">{connectionInfo.host}</span></p>
+                <p className="text-sm text-gray-500">DB Name: <span className="font-semibold">{connectionInfo.database_name}</span></p>
+                <p className="text-sm text-gray-500">Type: <span className="font-semibold">{connectionInfo.db_type}</span></p>
+                <p className="text-sm text-gray-500">Check Frequency: <span className="font-semibold">{connectionInfo.check_frequency}</span></p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-gray-500">Connected Tables</p>
@@ -120,9 +142,9 @@ const Dashboard = () => {
             <CardContent className="p-4">
               <p className="text-sm text-gray-500">Avg Pass %</p>
               <p className="text-xl font-bold">
-                {summary?.data_quality?.avg_pass !== undefined
+                {summary?.data_quality?.avg_pass != null
                   ? `${summary.data_quality.avg_pass.toFixed(2)}%`
-                  : "Not Available"}
+                  : "No data"}
               </p>
             </CardContent>
           </Card>
@@ -198,7 +220,7 @@ const Dashboard = () => {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    labelLine={false} // ✅ disables default dots/lines
+                    labelLine={false}
                   >
                     {incidentSummary.map((entry, index) => (
                       <Cell
@@ -208,7 +230,6 @@ const Dashboard = () => {
                     ))}
                   </Pie>
                   <Tooltip />
-                  
                 </PieChart>
               </ResponsiveContainer>
             )}

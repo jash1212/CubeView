@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import api from "@/api"; // Use your axios instance
 
 const Settings = () => {
   const [connections, setConnections] = useState([]);
@@ -22,12 +22,12 @@ const Settings = () => {
 
   const fetchConnections = async () => {
     try {
-      const res = await axios.get("/api/get-db/");
+      const res = await api.get("/api/get-db/");
       if (res.data) {
-        setConnections([res.data]); // Supports 1 connection now
+        setConnections([res.data]);
       }
     } catch (err) {
-      console.error("Failed to fetch connections", err);
+      console.error("❌ Failed to fetch connections:", err);
     }
   };
 
@@ -49,7 +49,7 @@ const Settings = () => {
     setErrorMsg("");
 
     try {
-      await axios.post("/api/connect-db/", formData);
+      await api.post("/api/connect-db/", formData);
       setShowForm(false);
       setFormData({
         name: "",
@@ -65,7 +65,7 @@ const Settings = () => {
     } catch (err) {
       const msg = err.response?.data?.error || "Unknown error";
       setErrorMsg(msg);
-      alert("Connection failed: " + msg);
+      console.error("❌ Connection failed:", err);
     } finally {
       setLoading(false);
     }
@@ -74,6 +74,12 @@ const Settings = () => {
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Database Settings</h2>
+
+      {errorMsg && (
+        <div className="bg-red-100 text-red-700 p-2 rounded text-sm">
+          ⚠️ {errorMsg}
+        </div>
+      )}
 
       <Button onClick={() => setShowForm((prev) => !prev)}>
         {showForm ? "Cancel" : "Connect New Database"}
@@ -87,7 +93,17 @@ const Settings = () => {
           <Input name="database_name" value={formData.database_name} placeholder="Database Name" onChange={handleChange} required />
           <Input name="username" value={formData.username} placeholder="Username" onChange={handleChange} required />
           <Input name="password" value={formData.password} type="password" placeholder="Password" onChange={handleChange} required />
-          <Input name="check_frequency" value={formData.check_frequency} placeholder="Check Frequency" onChange={handleChange} />
+
+          <select
+            name="check_frequency"
+            value={formData.check_frequency}
+            onChange={handleChange}
+            className="border rounded px-3 py-2"
+          >
+            <option value="minutely">Every Minute</option>
+            <option value="hourly">Every Hour</option>
+            <option value="daily">Every Day</option>
+          </select>
 
           <div className="col-span-1 sm:col-span-2">
             <Button type="submit" disabled={loading}>
@@ -97,7 +113,7 @@ const Settings = () => {
         </form>
       )}
 
-      {connections.length > 0 && (
+      {connections.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
           {connections.map((conn, idx) => (
             <Card key={idx}>
@@ -111,6 +127,8 @@ const Settings = () => {
             </Card>
           ))}
         </div>
+      ) : (
+        <p className="text-sm text-gray-500 mt-4">No database connection found.</p>
       )}
     </div>
   );

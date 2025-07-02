@@ -1,10 +1,27 @@
-asgiref
-Django
-django-cors-headers
-djangorestframework
-djangorestframework-simplejwt
-PyJWT
-pytz
-sqlparse
-psycopg2-binary
-python-dotenv
+# Core Framework
+Django==5.2.1
+
+# REST Framework
+djangorestframework==3.15.1
+djangorestframework-simplejwt==5.3.1
+
+# PostgreSQL Database
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# Authentication
+django-cors-headers==4.3.1
+
+# Utility Libraries
+python-dotenv==1.0.1
+
+# For Scheduled Tasks (Optional if using)
+celery==5.3.6
+django-celery-beat==2.5.0
+
+# For API Testing (Optional)
+requests==2.31.0
+
+# Linting/Code Style (Optional for dev)
+black==24.3.0
+isort==5.13.2

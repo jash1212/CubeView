@@ -8,8 +8,12 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .utils.check_data_quality import run_data_quality_checks
 from .serializers import IncidentSerializer
-from .models import Incident
+from .models import Incident, DataTable, ColumnMetadata, DataQualityCheck,Tag, DataTableTag
+from cubeview.serializers import IncidentSerializer
+from django.db.models import Q
 
+
+from django.shortcuts import get_object_or_404
 
 import psycopg2
 
@@ -197,6 +201,7 @@ def collect_metadata(request):
             user=db_conn.db_user,
             password=db_conn.db_password,
             connect_timeout=5,
+            
         )
         cursor = conn.cursor()
 
@@ -323,12 +328,12 @@ def dashboard_overview(request):
 @permission_classes([IsAuthenticated])
 def health_score(request):
     user = request.user
-    checks = DataQualityCheck.objects.filter(user=user)
+    checks = DataQualityCheck.objects.filter(table__owner=user)
 
     if not checks.exists():
         return Response({"score": 100, "status": "No checks run yet."})
 
-    passed = checks.filter(passed=True).count()
+    passed = checks.filter(passed_percentage__gte=95).count()  # threshold = 95%
     total = checks.count()
     score = int((passed / total) * 100)
 
@@ -348,7 +353,7 @@ def health_score(request):
 @permission_classes([IsAuthenticated])
 def incident_summary(request):
     user = request.user
-    incidents = Incident.objects.filter(user=user)
+    incidents = Incident.objects.filter(related_table__owner=user)
 
     categories = {
         "Volume": 0,
@@ -360,13 +365,14 @@ def incident_summary(request):
     }
 
     for incident in incidents:
-        type_ = incident.incident_type  # assuming field `incident_type`
+        type_ = getattr(incident, "incident_type", "Custom")
         if type_ in categories:
             categories[type_] += 1
         else:
-            categories["Custom"] += 1  # fallback
+            categories["Custom"] += 1
 
     return Response(categories)
+
 
 
 @api_view(["GET"])
@@ -376,21 +382,213 @@ def recent_incidents(request):
     days = int(request.GET.get("days", 7))
     since = timezone.now() - timedelta(days=days)
 
-    incidents = Incident.objects.filter(user=user, created_at__gte=since).order_by(
-        "-created_at"
-    )[:10]
+    incidents = Incident.objects.filter(
+        related_table__owner=user,
+        created_at__gte=since
+    ).order_by("-created_at")[:10]
 
     data = []
     for incident in incidents:
         data.append(
             {
-                "table": (
-                    incident.table.name if incident.table else "N/A"
-                ),  # assuming FK
-                "type": incident.incident_type,
+                "table": incident.related_table.name if incident.related_table else "N/A",
+                "type": getattr(incident, "incident_type", "Custom"),
                 "time": incident.created_at,
-                "count": 1,  # or total events if stored
+                "count": 1,
             }
         )
 
     return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def fetch_user_tables(request):
+    user = request.user
+    tables = DataTable.objects.filter(owner=user).prefetch_related("columns")
+
+    data = []
+    for table in tables:
+        tags = table.datatabletag_set.select_related("tag").values_list("tag__name", flat=True)
+        data.append({
+            "id": table.id,
+            "name": table.name,
+            "source": table.source,
+            "description": table.description,
+            "created_at": table.created_at,
+            "last_updated": table.last_updated,
+            "tags": list(tags),
+        })
+
+    return Response(data)
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def table_detail(request, table_id):
+    try:
+        table = DataTable.objects.get(id=table_id, owner=request.user)
+        columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
+        checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:10]
+        incidents = Incident.objects.filter(related_table=table).order_by("-created_at")[:10]
+
+        return Response({
+            "id": table.id,
+            "name": table.name,
+            "source": table.source,
+            "description": table.description,
+            "created_at": table.created_at,
+            "last_updated": table.last_updated,
+            "columns": list(columns),
+            "checks": [
+                {
+                    "run_time": c.run_time,
+                    "passed_percentage": c.passed_percentage,
+                } for c in checks
+            ],
+            "incidents": [
+                {
+                    "title": i.title,
+                    "status": i.status,
+                    "created_at": i.created_at,
+                } for i in incidents
+            ]
+        })
+
+    except DataTable.DoesNotExist:
+        return Response({"error": "Table not found"}, status=404)
+    
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def table_detail_view(request, id):
+    user = request.user
+    table = get_object_or_404(DataTable, id=id, owner=user)
+
+    # Basic info
+    data = {
+        "id": table.id,
+        "name": table.name,
+        "description": table.description,
+        "source": table.source,
+        "created_at": table.created_at,
+        "last_updated": table.last_updated,
+        "owner": table.owner.username,
+    }
+
+    # Tags
+    tags = Tag.objects.filter(datatabletag__table=table).values_list("name", flat=True)
+    data["tags"] = list(tags)
+
+    # Columns
+    columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
+    data["columns"] = list(columns)
+
+    # Quality checks
+    checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:5]
+    data["quality_checks"] = [
+        {"run_time": c.run_time, "passed_percentage": c.passed_percentage}
+        for c in checks
+    ]
+
+    # Incidents
+    incidents = Incident.objects.filter(related_table=table).order_by("-created_at")[:10]
+    data["incidents"] = [
+        {
+            "title": i.title,
+            "description": i.description,
+            "status": i.status,
+            "created_at": i.created_at,
+        }
+        for i in incidents
+    ]
+
+    return Response(data)
+
+# views.py
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_user_tables(request):
+    user = request.user
+    tables = DataTable.objects.filter(owner=user)
+    data = []
+    for table in tables:
+        data.append({
+            "id": table.id,
+            "name": table.name,
+            "description": table.description,
+            "last_updated": table.last_updated,
+            "tags": list(table.datatabletag_set.all().values_list("tag__name", flat=True)),
+        })
+    return Response(data)
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_incidents(request):
+    user = request.user
+    status_filter = request.GET.get("status")
+    table_filter = request.GET.get("table")
+    type_filter = request.GET.get("type")
+
+    try:
+        incidents = Incident.objects.filter(related_table__owner=user)
+
+        if status_filter:
+            incidents = incidents.filter(status=status_filter)
+
+        if table_filter and table_filter.isdigit():
+            incidents = incidents.filter(related_table__id=int(table_filter))
+
+        if type_filter:
+            incidents = incidents.filter(incident_type=type_filter)
+
+        data = [
+            {
+                "id": i.id,
+                "title": i.title,
+                "status": i.status,
+                "type": getattr(i, "incident_type", "Unknown"),
+                "table": i.related_table.name if i.related_table else "N/A",
+                "created_at": i.created_at,
+            }
+            for i in incidents.order_by("-created_at")
+        ]
+
+        return Response(data)
+    
+    except Exception as e:
+        print("🔴 Incident Fetch Error:", str(e))
+        return Response({"error": str(e)}, status=500)
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def resolve_incident(request, pk):
+    try:
+        incident = Incident.objects.get(id=pk, related_table__owner=request.user)
+        incident.status = "resolved"
+        incident.save()
+        return Response({"message": "Incident resolved."}, status=200)
+    except Incident.DoesNotExist:
+        return Response({"error": "Incident not found."}, status=404)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def incident_filter_options(request):
+    user = request.user
+    tables = (
+        Incident.objects.filter(related_table__owner=user)
+        .values_list("related_table__name", flat=True)
+        .distinct()
+    )
+    types = (
+        Incident.objects.filter(related_table__owner=user)
+        .values_list("type", flat=True)
+        .distinct()
+    )
+    return Response({
+        "tables": list(tables),
+        "types": list(types),
+    })

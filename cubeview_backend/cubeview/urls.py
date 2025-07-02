@@ -6,10 +6,16 @@ from .views import (
     collect_metadata,
     dashboard_data,
     fetch_user_tables,
-    RegisterView,get_db_connection
+    RegisterView,
+    get_db_connection,
+    run_quality_checks,
+    get_user_incidents,
+    dashboard_overview,
+    health_score,
+    incident_summary,
+    recent_incidents,
+    table_detail, list_incidents,list_user_tables,resolve_incident,incident_filter_options
 )
-from . import views
-
 
 urlpatterns = [
     # ✅ Auth
@@ -26,12 +32,23 @@ urlpatterns = [
     # ✅ User DB Connect
     path("connect-db/", connect_db, name="connect-db"),
     path("get-db/", get_db_connection, name="get-db-connection"),
+
+    # ✅ Quality Checks + Incidents
+    path("run-quality-checks/", run_quality_checks, name="run-quality-check"),
+    path("incidents/", get_user_incidents, name="get-user-incidents"),
+    path("overview/", dashboard_overview, name="dashboard-overview"),
+    path("health-score/", health_score, name="health-score"),
+    path("incident-summary/", incident_summary, name="incident-summary"),
+    path("recent-incidents/", recent_incidents, name="recent-incidents"),
     
-    path("run-quality-check/", views.run_quality_checks, name="run-quality-check"),
-    path('incidents/', views.get_user_incidents, name='get-user-incidents'),
-    
-    path("dashboard/overview/", views.dashboard_overview, name="dashboard-overview"),
-    path("dashboard/health-score/", views.health_score, name="health-score"),
-    path("dashboard/incident-summary/", views.incident_summary, name="incident-summary"),
-    path("dashboard/incidents/", views.recent_incidents, name="recent-incidents"),
+    path("user-tables/", fetch_user_tables),
+    path("table/<int:table_id>/", table_detail),
+    path("tables/", list_user_tables),
+    path("incidents/", list_incidents),
+    path("incidents/<int:pk>/resolve/", resolve_incident),
+    path("incidents/filters/", incident_filter_options),
+
+
+
+
 ]

@@ -40,6 +40,7 @@ class Incident(models.Model):
         ("ongoing", "Ongoing"),
         ("resolved", "Resolved"),
     ]
+    type = models.CharField(max_length=100, blank=True, null=True)
 
     title = models.CharField(max_length=100)
     description = models.TextField()
@@ -47,6 +48,7 @@ class Incident(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ongoing")
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    incident_type = models.CharField(max_length=50, default="Custom") 
 
     def __str__(self):
         return self.title

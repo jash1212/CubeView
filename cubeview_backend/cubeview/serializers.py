@@ -95,3 +95,13 @@ class ExportedMetadataSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportedMetadata
         fields = '__all__'
+
+class IncidentSerializer(serializers.ModelSerializer):
+    table_name = serializers.CharField(source="related_table.name", read_only=True)
+
+    class Meta:
+        model = Incident
+        fields = [
+            "id", "title", "description", "incident_type",
+            "status", "created_at", "resolved_at", "table_name"
+        ]

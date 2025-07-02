@@ -7,6 +7,12 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import TablesList from "./pages/TablesList";
 import Settings from "./pages/Settings";
+import Datasets from "@/pages/Datasets";
+// import TableDetail from "@/pages/TableDetail";
+import TableExplorer from "./pages/TableExplorer";
+import Incidents from "./pages/Incidents";
+
+
 
 function App() {
   return (
@@ -22,6 +28,11 @@ function App() {
           </ProtectedRoute>
         }
       >
+        <Route path="/datasets" element={<Datasets />} />
+        <Route path="/incidents" element={<Incidents />} />
+        {/* <Route path="/table/:tableId" element={<TableDetail />} /> */}
+        <Route path="/table-explorer" element={<TableExplorer />} />
+
         <Route path="settings" element={<Settings />} />
         <Route path="dashboard" element={<Dashboard />} /> {/* ✅ FIXED */}
         <Route path="tables" element={<TablesList />} />
