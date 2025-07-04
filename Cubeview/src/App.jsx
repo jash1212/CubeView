@@ -11,6 +11,10 @@ import Datasets from "@/pages/Datasets";
 // import TableDetail from "@/pages/TableDetail";
 import TableExplorer from "./pages/TableExplorer";
 import Incidents from "./pages/Incidents";
+import IncidentDetail from "@/pages/IncidentDetail";
+import TableDetail from "@/pages/TableDetail"; // adjust path if needed
+
+
 
 
 
@@ -28,6 +32,9 @@ function App() {
           </ProtectedRoute>
         }
       >
+        <Route path="/incidents/:id" element={<IncidentDetail />} />
+        <Route path="/tables/:tableId" element={<TableDetail />} />
+
         <Route path="/datasets" element={<Datasets />} />
         <Route path="/incidents" element={<Incidents />} />
         {/* <Route path="/table/:tableId" element={<TableDetail />} /> */}

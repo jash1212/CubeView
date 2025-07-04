@@ -105,3 +105,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "id", "title", "description", "incident_type",
             "status", "created_at", "resolved_at", "table_name"
         ]
+class IncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Incident
+        fields = "__all__"  # or add 'severity' manually

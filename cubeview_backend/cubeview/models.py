@@ -3,7 +3,6 @@ from django.db import models
 from django.contrib.auth import get_user_model
 
 
-
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     check_frequency = models.CharField(
@@ -13,13 +12,12 @@ class User(AbstractUser):
     )
 
 
-
 class DataTable(models.Model):
     name = models.CharField(max_length=100)
     source = models.CharField(max_length=100)  # e.g., Snowflake, PostgreSQL
     created_at = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # renamed from owner to user
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -49,13 +47,24 @@ class Incident(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     incident_type = models.CharField(max_length=50, default="Custom") 
+    severity = models.CharField(
+        max_length=20,
+        choices=[
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High")
+        ],
+        default="medium",
+        blank=True,
+        null=True
+    )
 
     def __str__(self):
         return self.title
 
 
 class DataQualityCheck(models.Model):
-    table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
+    table = models.ForeignKey(DataTable, on_delete=models.CASCADE, related_name="data_quality_checks")
     run_time = models.DateTimeField(auto_now_add=True)
     passed_percentage = models.FloatField()  # e.g., 96.5%
 
@@ -68,6 +77,7 @@ class ExportedMetadata(models.Model):
     table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
     format = models.CharField(max_length=10)  # CSV, JSON
     timestamp = models.DateTimeField(auto_now_add=True)
+    ai_description = models.TextField(blank=True, null=True)
 
 
 class ColumnMetadata(models.Model):
@@ -80,13 +90,14 @@ class ColumnMetadata(models.Model):
     def __str__(self):
         return f"{self.table.name}.{self.name} ({self.data_type})"
 
+
 FREQUENCY_CHOICES = [
     ("minutely", "Every Minute"),
     ("hourly", "Every Hour"),
     ("daily", "Every Day"),
 ]
 
-# models.py
+
 class UserDatabaseConnection(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     name = models.CharField(max_length=100)  # e.g., "NeonDB 1"
@@ -102,3 +113,18 @@ class UserDatabaseConnection(models.Model):
     def __str__(self):
         return f"{self.name} ({self.db_type})"
 
+
+class FieldMetric(models.Model):
+    table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
+    column = models.ForeignKey(ColumnMetadata, on_delete=models.CASCADE)
+    null_count = models.IntegerField(default=0)
+    null_percentage = models.FloatField(default=0)
+    distinct_count = models.IntegerField(default=0)
+    min_value = models.CharField(max_length=255, blank=True, null=True)
+    max_value = models.CharField(max_length=255, blank=True, null=True)
+    avg_value = models.FloatField(blank=True, null=True)
+    most_frequent = models.CharField(max_length=255, blank=True, null=True)
+    calculated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("table", "column")

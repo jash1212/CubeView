@@ -9,7 +9,6 @@ from cubeview.models import (
     ColumnMetadata,
 )
 
-
 def run_data_quality_checks(user):
     try:
         db_conn = UserDatabaseConnection.objects.get(user=user)
@@ -32,7 +31,7 @@ def run_data_quality_checks(user):
         tables = cursor.fetchall()
 
         for (table_name,) in tables:
-            related_table = DataTable.objects.filter(name=table_name, owner=user).first()
+            related_table = DataTable.objects.filter(name=table_name, user=user).first()
             if not related_table:
                 continue
 
@@ -48,7 +47,8 @@ def run_data_quality_checks(user):
                     title=f"No rows in {table_name}",
                     description=f"{table_name} is empty.",
                     related_table=related_table,
-                    status="ongoing"
+                    status="ongoing",
+                    severity="high"
                 )
 
             # GET COLUMNS
@@ -60,8 +60,8 @@ def run_data_quality_checks(user):
             columns = cursor.fetchall()
             total_checks += len(columns)
 
-            # Overwrite column metadata
             ColumnMetadata.objects.filter(table=related_table).delete()
+
             for (col, data_type) in columns:
                 ColumnMetadata.objects.create(
                     table=related_table,
@@ -78,7 +78,8 @@ def run_data_quality_checks(user):
                         title=f"Nulls in {table_name}.{col}",
                         description=f"{null_count} nulls found in column '{col}'",
                         related_table=related_table,
-                        status="ongoing"
+                        status="ongoing",
+                        severity="low"
                     )
 
                 # HIGH NULL RATIO (>30%)
@@ -90,7 +91,8 @@ def run_data_quality_checks(user):
                             title=f"High null ratio in {table_name}.{col}",
                             description=f"{col} has {null_ratio:.0%} nulls",
                             related_table=related_table,
-                            status="ongoing"
+                            status="ongoing",
+                            severity="medium"
                         )
 
                 # CONSTANT VALUE COLUMN
@@ -102,10 +104,11 @@ def run_data_quality_checks(user):
                         title=f"Constant column {table_name}.{col}",
                         description=f"{col} has the same value for all rows",
                         related_table=related_table,
-                        status="ongoing"
+                        status="ongoing",
+                        severity="low"
                     )
 
-                # OUTLIER DETECTION FOR NUMERIC
+                # OUTLIER DETECTION
                 if data_type in ["integer", "numeric", "double precision", "real"]:
                     cursor.execute(f'''
                         SELECT MIN("{col}"), MAX("{col}"), AVG("{col}"), STDDEV("{col}")
@@ -124,15 +127,17 @@ def run_data_quality_checks(user):
                                     f"Mean: {avg:.2f}, Stddev: {stddev:.2f}"
                                 ),
                                 related_table=related_table,
-                                status="ongoing"
+                                status="ongoing",
+                                severity="medium"
                             )
 
-            # SAVE QUALITY CHECK SCORE
+            # ✅ After all checks, calculate severity based on overall failure percentage
             passed_percentage = ((total_checks - failed_checks) / total_checks) * 100
             DataQualityCheck.objects.create(
-                table=related_table,
-                passed_percentage=passed_percentage
-            )
+    table=related_table,
+    passed_percentage=passed_percentage
+)
+
 
         conn.close()
         return "Check complete."

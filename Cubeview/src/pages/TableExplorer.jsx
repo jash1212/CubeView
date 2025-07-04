@@ -1,16 +1,21 @@
-// src/pages/TableExplorer.jsx
 import React, { useEffect, useState } from "react";
 import api from "@/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 export default function TableExplorer() {
+  const navigate = useNavigate();
   const [tables, setTables] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [tableDetail, setTableDetail] = useState(null);
+  const [metrics, setMetrics] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingTables, setLoadingTables] = useState(true);
+  const [generatedDescription, setGeneratedDescription] = useState("");
+  const [docLoading, setDocLoading] = useState(false);
 
   useEffect(() => {
     fetchTables();
@@ -19,6 +24,7 @@ export default function TableExplorer() {
   useEffect(() => {
     if (selectedTableId !== null) {
       fetchTableDetail(selectedTableId);
+      fetchMetrics(selectedTableId);
     }
   }, [selectedTableId]);
 
@@ -49,10 +55,34 @@ export default function TableExplorer() {
     }
   };
 
+  const fetchMetrics = async (id) => {
+    try {
+      const res = await api.get(`/api/metrics/${id}/`);
+      setMetrics(res.data);
+    } catch (err) {
+      console.error("Failed to fetch metrics", err);
+      setMetrics(null);
+    }
+  };
+
+  const handleGenerateDocs = async (tableId) => {
+    setDocLoading(true);
+    try {
+      const response = await api.post(`/api/generate-docs/${tableId}/`);
+      const { documentation } = response.data;
+      setGeneratedDescription(documentation);
+    } catch (error) {
+      console.error("Error generating docs", error);
+      alert("Failed to generate documentation. Check server logs.");
+    } finally {
+      setDocLoading(false);
+    }
+  };
+
   return (
-    <div className="flex h-full space-x-6">
-      {/* Sidebar: Table List */}
-      <div className="w-1/4 bg-white border rounded p-4 overflow-y-auto">
+    <div className="flex h-full gap-6 p-4">
+      {/* Sidebar: Tables List */}
+      <aside className="w-1/4 bg-white border rounded-lg p-4 shadow-sm overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Tables</h2>
         {loadingTables ? (
           <Skeleton className="h-48" />
@@ -63,89 +93,163 @@ export default function TableExplorer() {
             {tables.map((table) => (
               <li
                 key={table.id}
-                onClick={() => setSelectedTableId(table.id)}
                 className={cn(
-                  "cursor-pointer px-3 py-2 rounded text-sm hover:bg-blue-50",
-                  table.id === selectedTableId && "bg-blue-100 text-blue-800 font-semibold"
+                  "group px-3 py-2 rounded-md hover:bg-blue-50 border cursor-pointer transition-all duration-150",
+                  table.id === selectedTableId &&
+                  "bg-blue-100 text-blue-800 font-semibold"
                 )}
               >
-                {table.name}
+                <div className="flex justify-between items-center">
+                  <button
+                    className="text-left w-full"
+                    onClick={() => setSelectedTableId(table.id)}
+                  >
+                    {table.name}
+                  </button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={docLoading}
+                    className="ml-2"
+                    onClick={() => handleGenerateDocs(table.id)}
+                  >
+                    {docLoading ? "..." : "Docs"}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </aside>
 
-      {/* Detail Panel */}
-      <div className="flex-1 bg-white border rounded p-6 overflow-y-auto">
+      {/* Main Detail Panel */}
+      <main className="flex-1 bg-white border rounded-lg p-6 shadow-sm overflow-y-auto">
         {loadingDetail || !tableDetail ? (
           <Skeleton className="h-full" />
         ) : (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold">{tableDetail.name}</h2>
-              <p className="text-gray-500 text-sm">{tableDetail.description || "No description"}</p>
-              <p className="text-gray-400 text-xs">
-                Source: {tableDetail.source} | Created: {new Date(tableDetail.created_at).toLocaleString()}
+          <div className="space-y-8">
+            {/* Basic Info */}
+            <section>
+              <h2 className="text-2xl font-bold mb-1">{tableDetail.name}</h2>
+              <p className="text-gray-600">
+                {tableDetail.description || "No description available"}
               </p>
-            </div>
+              <p className="text-sm text-gray-400 mt-1">
+                Source: {tableDetail.source} | Created:{" "}
+                {new Date(tableDetail.created_at).toLocaleString()}
+              </p>
+            </section>
 
-            <div>
-              <h3 className="font-semibold mb-1">Tags</h3>
-              {tableDetail.tags && tableDetail.tags.length > 0 ? (
-                <p>{tableDetail.tags.join(", ")}</p>
+            {/* Tags */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">Tags</h3>
+              {tableDetail.tags?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {tableDetail.tags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               ) : (
-                <p className="text-sm text-gray-400">No tags</p>
+                <p className="text-sm text-gray-400">No tags assigned</p>
               )}
-            </div>
+            </section>
 
-            <div>
-              <h3 className="font-semibold mb-1">Columns</h3>
-              {tableDetail.columns.length > 0 ? (
-                <ul className="grid grid-cols-2 gap-2">
+            {/* Columns */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">Columns</h3>
+              {tableDetail.columns?.length > 0 ? (
+                <ul className="grid grid-cols-2 gap-2 text-sm">
                   {tableDetail.columns.map((col, idx) => (
-                    <li key={idx} className="text-sm">
+                    <li key={idx}>
                       <strong>{col.name}</strong>: {col.data_type}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-400">No columns found</p>
+                <p className="text-sm text-gray-400">No columns available</p>
               )}
-            </div>
+            </section>
 
-            <div>
-              <h3 className="font-semibold mb-1">Quality Checks</h3>
+            {/* Field-level Metrics */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">📊 Field Metrics</h3>
+              {metrics ? (
+                <div className="space-y-2 text-sm">
+                  {Object.entries(metrics).map(([col, data]) => (
+                    <div
+                      key={col}
+                      className="flex justify-between border-b pb-1"
+                    >
+                      <span className="font-medium">{col}</span>
+                      <span className="text-gray-600">
+                        Nulls: {data.null_percentage}% | Distinct:{" "}
+                        {data.distinct_percentage}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Loading metrics...</p>
+              )}
+            </section>
+
+            {/* Quality Checks */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">Quality Checks</h3>
               {tableDetail.quality_checks?.length > 0 ? (
-                <ul className="text-sm space-y-1">
+                <ul className="space-y-1 text-sm">
                   {tableDetail.quality_checks.map((check, idx) => (
                     <li key={idx}>
-                      {new Date(check.run_time).toLocaleString()} - {check.passed_percentage}%
+                      {new Date(check.run_time).toLocaleString()} -{" "}
+                      <span className="text-green-600">
+                        {check.passed_percentage}%
+                      </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-400">No quality checks</p>
+                <p className="text-sm text-gray-400">No checks available</p>
               )}
-            </div>
+            </section>
 
-            <div>
-              <h3 className="font-semibold mb-1">Incidents</h3>
+            {/* Incidents */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">Incidents</h3>
               {tableDetail.incidents?.length > 0 ? (
-                <ul className="text-sm space-y-1">
+                <ul className="space-y-1 text-sm">
                   {tableDetail.incidents.map((incident, idx) => (
                     <li key={idx}>
-                      {incident.created_at.slice(0, 10)} - <strong>{incident.title}</strong> ({incident.status})
+                      {incident.created_at.slice(0, 10)} —{" "}
+                      <strong>{incident.title}</strong>{" "}
+                      <span className="text-gray-500">({incident.status})</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-400">No incidents</p>
+                <p className="text-sm text-gray-400">No incidents reported</p>
               )}
-            </div>
+            </section>
+
+            {/* Generated Docs */}
+            <section>
+              <h3 className="font-semibold text-lg mb-2">Generated Docs</h3>
+              <div className="p-4 bg-blue-50 text-blue-900 text-sm rounded whitespace-pre-line border">
+                {generatedDescription || (
+                  <span className="text-gray-400">
+                    Click 'Docs' to generate.
+                  </span>
+                )}
+              </div>
+            </section>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
