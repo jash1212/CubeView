@@ -36,7 +36,7 @@ def run_data_quality_checks(user):
                 continue
 
             failed_checks = 0
-            total_checks = 1  # Start with row count
+            total_checks = 1  # Row count check
 
             # ROW COUNT CHECK
             cursor.execute(f'SELECT COUNT(*) FROM "{table_name}";')
@@ -48,7 +48,8 @@ def run_data_quality_checks(user):
                     description=f"{table_name} is empty.",
                     related_table=related_table,
                     status="ongoing",
-                    severity="high"
+                    severity="high",
+                    incident_type="Volume"
                 )
 
             # GET COLUMNS
@@ -79,7 +80,8 @@ def run_data_quality_checks(user):
                         description=f"{null_count} nulls found in column '{col}'",
                         related_table=related_table,
                         status="ongoing",
-                        severity="low"
+                        severity="low",
+                        incident_type="Field Health"
                     )
 
                 # HIGH NULL RATIO (>30%)
@@ -92,7 +94,8 @@ def run_data_quality_checks(user):
                             description=f"{col} has {null_ratio:.0%} nulls",
                             related_table=related_table,
                             status="ongoing",
-                            severity="medium"
+                            severity="medium",
+                            incident_type="Field Health"
                         )
 
                 # CONSTANT VALUE COLUMN
@@ -105,7 +108,8 @@ def run_data_quality_checks(user):
                         description=f"{col} has the same value for all rows",
                         related_table=related_table,
                         status="ongoing",
-                        severity="low"
+                        severity="low",
+                        incident_type="Field Health"
                     )
 
                 # OUTLIER DETECTION
@@ -128,16 +132,15 @@ def run_data_quality_checks(user):
                                 ),
                                 related_table=related_table,
                                 status="ongoing",
-                                severity="medium"
+                                severity="medium",
+                                incident_type="Field Health"
                             )
 
-            # ✅ After all checks, calculate severity based on overall failure percentage
             passed_percentage = ((total_checks - failed_checks) / total_checks) * 100
             DataQualityCheck.objects.create(
-    table=related_table,
-    passed_percentage=passed_percentage
-)
-
+                table=related_table,
+                passed_percentage=passed_percentage
+            )
 
         conn.close()
         return "Check complete."

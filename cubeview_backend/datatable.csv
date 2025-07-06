@@ -1,0 +1,7 @@
+id,name,source,created_at,last_updated,user,description,connection
+1,customer_data,PostgreSQL,2025-06-15 09:47:50.842056+00:00,2025-06-15 09:47:50.842073+00:00,jash,,
+2,product_info,Snowflake,2025-06-15 09:47:51.098055+00:00,2025-06-15 09:47:51.098075+00:00,jash,,
+29,sales_data,Jash Solanki ,2025-07-06 06:58:37.170104+00:00,2025-07-06 09:18:25.091376+00:00,jashsolanki_06,,Jash Solanki  (PostgreSQL)
+28,jobs_log,Jash Solanki ,2025-07-06 06:58:28.875896+00:00,2025-07-06 09:18:28.676804+00:00,jashsolanki_06,,Jash Solanki  (PostgreSQL)
+26,product_catalog,Jash Solanki ,2025-07-06 06:58:21.055039+00:00,2025-07-06 09:18:32.984008+00:00,jashsolanki_06,,Jash Solanki  (PostgreSQL)
+27,users,Jash Solanki ,2025-07-06 06:58:23.946714+00:00,2025-07-06 09:18:36.870881+00:00,jashsolanki_06,,Jash Solanki  (PostgreSQL)

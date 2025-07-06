@@ -39,6 +39,18 @@ from django.shortcuts import get_object_or_404
 import psycopg2
 
 
+# Utility: get user active db connection name
+
+
+def get_active_connection_name(user):
+    active_db = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
+    return active_db.name if active_db else None
+def get_active_connection(user):
+    return UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
+
+
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_incidents(request):
@@ -106,28 +118,35 @@ class CreateUserView(generics.CreateAPIView):
 @permission_classes([IsAuthenticated])
 def dashboard_data(request):
     user = request.user
+    conn = get_active_connection(user)
+    if not conn:
+        return Response({"error": "No active connection found."}, status=404)
 
-    total_tables = DataTable.objects.filter(user=user).count()
-    total_fields = ColumnMetadata.objects.filter(table__user=user).count()
+    total_tables = DataTable.objects.filter(user=user, connection=conn).count()
+    total_fields = ColumnMetadata.objects.filter(table__user=user, table__connection=conn).count()
     total_sources = UserDatabaseConnection.objects.filter(user=user).count()
 
-    # For now, jobs = 0 until implemented later
     total_jobs = 0
 
-    # Data quality summary
     last_check = (
-        DataQualityCheck.objects.filter(table__user=user).order_by("-run_time").first()
+        DataQualityCheck.objects.filter(table__user=user, table__connection=conn)
+        .order_by("-run_time")
+        .first()
     )
-    checks = DataQualityCheck.objects.filter(table__user=user)
+    checks = DataQualityCheck.objects.filter(table__user=user, table__connection=conn)
     avg_pass = checks.aggregate(models.Avg("passed_percentage"))[
         "passed_percentage__avg"
     ]
 
     recent_tags = (
-        Tag.objects.filter(datatabletag__table__user=user)
+        Tag.objects.filter(datatabletag__table__user=user, datatabletag__table__connection=conn)
         .values_list("name", flat=True)
         .distinct()[:5]
     )
+
+    print("user:", user)
+    print("conn:", conn)
+    print("Tables found:", total_tables)
 
     return Response(
         {
@@ -214,59 +233,80 @@ def collect_metadata(request):
     user = request.user
 
     try:
-        db_conn = UserDatabaseConnection.objects.get(user=user)
+        db_conn = UserDatabaseConnection.objects.get(user=user, is_active=True)
 
         conn = psycopg2.connect(
             host=db_conn.host,
             port=db_conn.port,
-            dbname=db_conn.database,
-            user=db_conn.db_user,
-            password=db_conn.db_password,
+            dbname=db_conn.database_name,
+            user=db_conn.username,
+            password=db_conn.password,
             connect_timeout=5,
         )
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        # 🧠 Get latest table names from the database
+        cursor.execute("""
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
-        """
-        )
-        tables = cursor.fetchall()
+        """)
+        current_tables = set(row[0] for row in cursor.fetchall())
 
-        for (table_name,) in tables:
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-            row_count = cursor.fetchone()[0]
+        # 🗑️ Delete tables from CubeView that no longer exist
+        existing_tables = DataTable.objects.filter(user=user, connection=db_conn)
+        for t in existing_tables:
+            if t.name not in current_tables:
+                print("🗑️ Removing:", t.name)
+                t.delete()
 
-            dt = DataTable.objects.create(
-                name=table_name, source="PostgreSQL", user=user, description=""
-            )
+        # 🔁 Add/update tables
+        for table_name in current_tables:
+            # Manually ensure no duplicates
+            existing = DataTable.objects.filter(name=table_name, user=user, connection=db_conn)
+            if existing.count() > 1:
+                existing.delete()
 
-            cursor.execute(
-                """
+            dt = existing.first()
+            if not dt:
+                dt = DataTable.objects.create(
+                    name=table_name,
+                    user=user,
+                    connection=db_conn,
+                    source=db_conn.name,
+                    description="",
+                    last_updated=timezone.now(),
+                )
+            else:
+                dt.last_updated = timezone.now()
+                dt.save()
+
+            # 🔁 Update columns
+            ColumnMetadata.objects.filter(table=dt).delete()
+            cursor.execute("""
                 SELECT column_name, data_type
                 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = %s
-            """,
-                [table_name],
-            )
+                WHERE table_schema = 'public' AND table_name = %s;
+            """, [table_name])
             columns = cursor.fetchall()
 
             for column_name, data_type in columns:
                 ColumnMetadata.objects.create(
-                    table=dt, name=column_name, data_type=data_type
+                    table=dt,
+                    name=column_name,
+                    data_type=data_type
                 )
 
         cursor.close()
         conn.close()
-
-        return Response({"message": "Metadata collected and stored."})
+        return Response({"message": "Metadata synced with DB."})
 
     except UserDatabaseConnection.DoesNotExist:
-        return Response({"error": "No DB connection found for this user."}, status=404)
-
+        return Response({"error": "No active DB connection found for this user."}, status=404)
     except Exception as e:
+        import traceback
+        print("🔴 Metadata Collection Error:")
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 
@@ -288,18 +328,19 @@ def get_db_connection(request):
 @permission_classes([IsAuthenticated])
 def dashboard_overview(request):
     user = request.user
+    conn = get_active_connection(user)
+    tables = DataTable.objects.filter(user=user, connection=conn)
 
-    tables = DataTable.objects.filter(user=user)
     total_tables = tables.count()
     total_fields = sum([table.column_count or 0 for table in tables])
     total_tags = Tag.objects.filter(user=user).count()
 
     return Response(
         {
-            "data_sources": 1,  # You can update this once DB connections are modeled
+            "data_sources": 1,
             "tables": total_tables,
             "fields": total_fields,
-            "jobs": 0,  # Can be added later
+            "jobs": 0,
         }
     )
 
@@ -308,7 +349,12 @@ def dashboard_overview(request):
 @permission_classes([IsAuthenticated])
 def health_score(request):
     user = request.user
-    checks = DataQualityCheck.objects.filter(table__user=user)
+    db_conn = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
+    if not db_conn:
+        return Response({"error": "No active DB connection."}, status=404)
+
+    checks = DataQualityCheck.objects.filter(table__connection=db_conn)
+
 
     if not checks.exists():
         return Response({"score": 100, "status": "No checks run yet."})
@@ -333,25 +379,31 @@ def health_score(request):
 @permission_classes([IsAuthenticated])
 def incident_summary(request):
     user = request.user
-    incidents = Incident.objects.filter(related_table__user=user)
+    conn = get_active_connection(user)
+    incidents = Incident.objects.filter(
+        related_table__user=user, related_table__connection=conn
+    )
 
-    categories = {
-        "Volume": 0,
-        "Freshness": 0,
-        "Schema Drift": 0,
-        "Field Health": 0,
-        "Custom": 0,
-        "Job Failure": 0,
-    }
+    categories = [
+        "volume",
+        "freshness",
+        "schema_drift",
+        "field_health",
+        "job_failure",
+        "custom",
+    ]
+
+    counts = {cat: 0 for cat in categories}
 
     for incident in incidents:
-        type_ = getattr(incident, "incident_type", "Custom")
-        if type_ in categories:
-            categories[type_] += 1
+        itype = getattr(incident, "incident_type", "custom").lower()
+        if itype in counts:
+            counts[itype] += 1
         else:
-            categories["Custom"] += 1
+            counts["custom"] += 1
 
-    return Response(categories)
+    return Response(counts)
+
 
 
 @api_view(["GET"])
@@ -385,7 +437,11 @@ def recent_incidents(request):
 @permission_classes([IsAuthenticated])
 def fetch_user_tables(request):
     user = request.user
-    tables = DataTable.objects.filter(user=user).prefetch_related("columns")
+    conn = get_active_connection(user)
+
+    tables = DataTable.objects.filter(user=user, connection= conn).prefetch_related(
+        "columns"
+    )
 
     data = []
     for table in tables:
@@ -497,12 +553,12 @@ def table_detail_view(request, id):
     return Response(data)
 
 
-# views.py
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_user_tables(request):
     user = request.user
-    tables = DataTable.objects.filter(user=user)
+    conn = get_active_connection(user)
+    tables = DataTable.objects.filter(user=user, connection=conn)
     data = []
     for table in tables:
         data.append(
@@ -709,10 +765,22 @@ def field_metrics(request, table_id):
 def incident_trend(request):
     days = int(request.GET.get("days", 7))
     start_date = now().date() - timedelta(days=days)
+    user = request.user
 
+    category_keys = [
+        "volume",
+        "freshness",
+        "schema_drift",
+        "job_failure",
+        "custom",
+        "field_health",
+    ]
+
+    # Query grouped data
     incidents = (
         Incident.objects.filter(
-            created_at__date__gte=start_date, related_table__user=request.user
+            created_at__date__gte=start_date,
+            related_table__user=user,
         )
         .annotate(day=TruncDate("created_at"))
         .values("day", "incident_type")
@@ -720,21 +788,29 @@ def incident_trend(request):
         .order_by("day")
     )
 
-    # Group data by day, then by incident_type
-    trend_data = {}
+    trend_map = {}
+
     for entry in incidents:
-        day = entry["day"].isoformat()
-        if day not in trend_data:
-            trend_data[day] = {}
-        trend_data[day][entry["incident_type"]] = entry["count"]
+        date_str = entry["day"].isoformat()
+        raw_type = (entry["incident_type"] or "custom").strip().lower().replace(" ", "_")
 
-    # Convert to list of objects (one per day)
-    response_data = []
-    for day, types in trend_data.items():
-        types["date"] = day
-        response_data.append(types)
+        if date_str not in trend_map:
+            trend_map[date_str] = {k: 0 for k in category_keys}
+            trend_map[date_str]["date"] = date_str
 
-    return Response({"trend": []})
+        trend_map[date_str][raw_type] += entry["count"]
+
+    # Ensure all dates in range have at least 0s
+    for i in range(days):
+        d = (start_date + timedelta(days=i)).isoformat()
+        if d not in trend_map:
+            trend_map[d] = {k: 0 for k in category_keys}
+            trend_map[d]["date"] = d
+
+    trend_data = list(sorted(trend_map.values(), key=lambda x: x["date"]))
+
+    return Response({"trend": trend_data})
+
 
 
 @api_view(["GET"])
@@ -742,12 +818,17 @@ def incident_trend(request):
 def health_score_trend(request):
     days = int(request.GET.get("days", 7))
     start_date = now().date() - timedelta(days=days)
+    user = request.user
+    db_conn = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
+    if not db_conn:
+        return Response({"error": "No active DB connection."}, status=404)
 
     tables = (
-        DataTable.objects
-        .filter(last_updated__date__gte=start_date, user=request.user)
+        DataTable.objects.filter(
+            last_updated__date__gte=start_date, user=user, connection=db_conn
+        )
         .annotate(day=TruncDate("last_updated"))
-.annotate(avg_score=Avg("data_quality_checks__passed_percentage"))
+        .annotate(avg_score=Avg("data_quality_checks__passed_percentage"))
         .values("day", "avg_score")
         .order_by("day")
     )
@@ -755,7 +836,9 @@ def health_score_trend(request):
     response_data = [
         {
             "date": entry["day"].isoformat(),
-            "avg_health_score": round(entry["avg_score"], 2) if entry["avg_score"] else 0.0,
+            "avg_health_score": (
+                round(entry["avg_score"], 2) if entry["avg_score"] else 0.0
+            ),
         }
         for entry in tables
     ]

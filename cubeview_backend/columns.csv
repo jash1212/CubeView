@@ -1,0 +1,45 @@
+id,table,name,data_type
+809,sales_data,id,integer
+810,sales_data,id,integer
+811,sales_data,sale_date,date
+812,sales_data,sale_date,date
+813,sales_data,product_id,integer
+814,sales_data,customer_id,integer
+815,sales_data,product_id,integer
+816,sales_data,quantity,integer
+817,sales_data,customer_id,integer
+818,sales_data,quantity,integer
+819,sales_data,sale_amount,numeric
+820,sales_data,region,character varying
+821,sales_data,sale_amount,numeric
+822,sales_data,region,character varying
+823,jobs_log,job_id,integer
+824,jobs_log,job_id,integer
+825,jobs_log,job_name,character varying
+826,jobs_log,job_name,character varying
+827,jobs_log,status,character varying
+828,jobs_log,status,character varying
+829,jobs_log,started_at,timestamp without time zone
+830,jobs_log,started_at,timestamp without time zone
+831,jobs_log,ended_at,timestamp without time zone
+832,jobs_log,ended_at,timestamp without time zone
+833,jobs_log,log,text
+834,jobs_log,log,text
+835,product_catalog,product_id,integer
+836,product_catalog,product_id,integer
+837,product_catalog,product_name,character varying
+838,product_catalog,category,character varying
+839,product_catalog,product_name,character varying
+840,product_catalog,price,numeric
+841,product_catalog,category,character varying
+842,product_catalog,price,numeric
+843,users,user_id,integer
+844,users,username,character varying
+845,users,user_id,integer
+846,users,email,character varying
+847,users,username,character varying
+848,users,signup_date,date
+849,users,email,character varying
+850,users,signup_date,date
+851,users,is_active,boolean
+852,users,is_active,boolean

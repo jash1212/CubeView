@@ -19,6 +19,14 @@ class DataTable(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # renamed from owner to user
     description = models.TextField(blank=True, null=True)
+    connection = models.ForeignKey(
+    "UserDatabaseConnection",
+    on_delete=models.CASCADE,
+    null=True,
+    blank=True,
+    related_name="tables"
+)
+
 
     def __str__(self):
         return self.name
