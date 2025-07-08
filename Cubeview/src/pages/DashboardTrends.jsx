@@ -1,3 +1,5 @@
+// src/pages/DashboardTrends.jsx
+
 import React, { useEffect, useState } from "react";
 import api from "@/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,10 +23,10 @@ import {
 } from "@/components/ui/select";
 
 const TIME_OPTIONS = [
-  { label: "Last 24h", value: "1" },
-  { label: "Last 7d", value: "7" },
-  { label: "Last 14d", value: "14" },
-  { label: "Last 30d", value: "30" },
+  { label: "Last 24H", value: "1" },
+  { label: "Last 7D", value: "7" },
+  { label: "Last 14D", value: "14" },
+  { label: "Last 30D", value: "30" },
 ];
 
 const COLORS = {
@@ -51,17 +53,21 @@ export default function DashboardTrends() {
         api.get(`/api/incident-trend/?days=${days}`),
         api.get(`/api/health-score-trend/?days=${days}`),
       ]);
+
       setIncidentData(incidentRes.data?.trend || []);
       setHealthScoreData(healthRes.data || []);
     } catch (error) {
       console.error("Error fetching trend data:", error);
+      setIncidentData([]);
+      setHealthScoreData([]);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filter */}
-      <div className="flex justify-end mb-2">
+    <div className="space-y-10 mt-6">
+      {/* Time Range Selector */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-primary">📊 Trends Overview</h2>
         <Select value={days} onValueChange={setDays}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Select Time" />
@@ -76,42 +82,58 @@ export default function DashboardTrends() {
         </Select>
       </div>
 
-      {/* Incident Trend */}
-      <Card>
-        <CardContent className="p-4">
+      {/* Incident Trend Chart */}
+      <Card className="shadow-md">
+        <CardContent className="p-6">
           <h2 className="text-lg font-semibold mb-4">📉 Incident Trend</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={incidentData}>
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {Object.keys(COLORS).map((key) => (
-                <Bar key={key} dataKey={key} stackId="a" fill={COLORS[key]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          {incidentData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No incident data available.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={incidentData}>
+                <XAxis dataKey="date" className="text-sm" />
+                <YAxis className="text-sm" allowDecimals={false} />
+                <Tooltip />
+                <Legend iconType="circle" />
+                {Object.entries(COLORS).map(([key, color]) => (
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    stackId="a"
+                    fill={color}
+                    radius={[4, 4, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
       {/* Health Score Trend */}
-      <Card>
-        <CardContent className="p-4">
+      <Card className="shadow-md">
+        <CardContent className="p-6">
           <h2 className="text-lg font-semibold mb-4">📈 Health Score Trend</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={healthScoreData}>
-              <XAxis dataKey="date" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="avg_health_score"
-                stroke="#4f46e5"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {healthScoreData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No health score data available.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={healthScoreData}>
+                <XAxis dataKey="date" className="text-sm" />
+                <YAxis domain={[0, 100]} className="text-sm" />
+                <Tooltip />
+                <Legend iconType="plainline" />
+                <Line
+                  type="monotone"
+                  dataKey="avg_health_score"
+                  stroke="#4f46e5"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {cn} from "../lib/utils"
+import { cn } from "../lib/utils";
 
 const Incidents = () => {
   const [availableTables, setAvailableTables] = useState([]);
@@ -23,20 +23,30 @@ const Incidents = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
+
     const fetchOptions = async () => {
       try {
         const res = await api.get("/api/incidents/filters/");
-        setAvailableTables(res.data.tables);
-        setAvailableTypes(res.data.types);
+        if (!active) return;
+        setAvailableTables(res.data.tables || []);
+        setAvailableTypes(res.data.types || []);
       } catch (err) {
         console.error("Failed to load filter options", err);
       }
     };
+
     fetchOptions();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    fetchIncidents();
+    const timeout = setTimeout(() => {
+      fetchIncidents();
+    }, 200); // slight debounce
+    return () => clearTimeout(timeout);
   }, [filters]);
 
   const fetchIncidents = async () => {
@@ -48,21 +58,20 @@ const Incidents = () => {
       if (filters.type) params.append("type", filters.type);
 
       const res = await api.get(`/api/incidents/?${params.toString()}`);
-      const data = res.data;
+      const results = res.data?.results || [];
 
-
-      setIncidents(data);
-
-      const resolved = data.filter((i) => i.status === "resolved").length;
-      const ongoing = data.filter((i) => i.status === "ongoing").length;
-      setSummary({ total: data.length, resolved, ongoing });
+      setIncidents(results);
+      const resolved = results.filter((i) => i.status === "resolved").length;
+      const ongoing = results.filter((i) => i.status === "ongoing").length;
+      setSummary({ total: results.length, resolved, ongoing });
     } catch (err) {
       console.error("Failed to fetch incidents", err);
+      setIncidents([]);
+      setSummary({ total: 0, resolved: 0, ongoing: 0 });
     } finally {
       setLoading(false);
     }
   };
-
 
   const resolveIncident = async (id) => {
     try {
@@ -77,18 +86,18 @@ const Incidents = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-gray-800">Incidents</h1>
 
-      {/* Summary */}
       <div className="flex gap-6 text-sm text-gray-700">
         <span>🧾 Total: <strong>{summary.total}</strong></span>
         <span>✅ Resolved: <strong>{summary.resolved}</strong></span>
         <span>⚠️ Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-4 flex-wrap">
         <Select
           value={filters.table || "all"}
-          onValueChange={(value) => setFilters({ ...filters, table: value === "all" ? "" : value })}
+          onValueChange={(value) =>
+            setFilters({ ...filters, table: value === "all" ? "" : value })
+          }
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by table" />
@@ -103,7 +112,9 @@ const Incidents = () => {
 
         <Select
           value={filters.type || "all"}
-          onValueChange={(value) => setFilters({ ...filters, type: value === "all" ? "" : value })}
+          onValueChange={(value) =>
+            setFilters({ ...filters, type: value === "all" ? "" : value })
+          }
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
@@ -118,7 +129,9 @@ const Incidents = () => {
 
         <Select
           value={filters.status || "all"}
-          onValueChange={(value) => setFilters({ ...filters, status: value === "all" ? "" : value })}
+          onValueChange={(value) =>
+            setFilters({ ...filters, status: value === "all" ? "" : value })
+          }
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
@@ -132,10 +145,11 @@ const Incidents = () => {
       </div>
 
       {(filters.table || filters.type || filters.status) && (
-        <div className="text-xs text-gray-500 italic">Showing filtered results.</div>
+        <div className="text-xs text-gray-500 italic">
+          Showing filtered results.
+        </div>
       )}
 
-      {/* Incident List */}
       {loading ? (
         <p className="text-gray-500">Loading incidents...</p>
       ) : incidents.length === 0 ? (
@@ -150,44 +164,72 @@ const Incidents = () => {
               <Card key={incident.id}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between items-start">
-                    <div className="cursor-pointer" onClick={() => navigate(`/incidents/${incident.id}`)}>
-                      <h2 className="text-lg font-bold text-blue-600 hover:underline">{incident.title}</h2>
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/incidents/${incident.id}`)}
+                    >
+                      <h2 className="text-lg font-bold text-blue-600 hover:underline">
+                        {incident.title}
+                      </h2>
                       <p className="text-sm text-gray-600">{incident.description}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${incident.status === "resolved"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-yellow-100 text-yellow-700"
-                      }`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded font-medium ${
+                        incident.status === "resolved"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
                       {incident.status.toUpperCase()}
                     </span>
                   </div>
 
                   <div className="text-sm text-gray-500 space-y-1">
-                    <p>📌 Table: <span className="font-medium">{incident.table_name || "N/A"}</span></p>
-                    <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
+                    <p>
+                      📌 Table:{" "}
+                      <span className="font-medium">
+                        {incident.table_name || "N/A"}
+                      </span>
+                    </p>
+                    <p>
+                      🕒 Created:{" "}
+                      {new Date(incident.created_at).toLocaleString()}
+                    </p>
                     {incident.resolved_at && (
-                      <p>✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}</p>
+                      <p>
+                        ✅ Resolved:{" "}
+                        {new Date(incident.resolved_at).toLocaleString()}
+                      </p>
                     )}
                     {incident.type && (
-                      <p>🔍 Type: <span className="text-indigo-600">{incident.type}</span></p>
+                      <p>
+                        🔍 Type:{" "}
+                        <span className="text-indigo-600">{incident.type}</span>
+                      </p>
                     )}
                     {incident.severity && (
-                      <p>🔥 Severity:{" "}
-                        <span className={cn(
-                          "font-semibold",
-                          incident.severity === "high" && "text-red-600",
-                          incident.severity === "medium" && "text-yellow-600",
-                          incident.severity === "low" && "text-green-600"
-                        )}>
+                      <p>
+                        🔥 Severity:{" "}
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            incident.severity === "high" && "text-red-600",
+                            incident.severity === "medium" && "text-yellow-600",
+                            incident.severity === "low" && "text-green-600"
+                          )}
+                        >
                           {incident.severity}
                         </span>
                       </p>
                     )}
-
                   </div>
 
                   {incident.status === "ongoing" && (
-                    <Button size="sm" variant="outline" onClick={() => resolveIncident(incident.id)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resolveIncident(incident.id)}
+                    >
                       Mark as Resolved
                     </Button>
                   )}

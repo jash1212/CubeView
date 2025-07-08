@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function TableExplorer() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function TableExplorer() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingTables, setLoadingTables] = useState(true);
   const [generatedDescription, setGeneratedDescription] = useState("");
-  const [docLoading, setDocLoading] = useState(false);
+  const [docLoadingId, setDocLoadingId] = useState(null);
 
   useEffect(() => {
     fetchTables();
@@ -25,6 +26,7 @@ export default function TableExplorer() {
     if (selectedTableId !== null) {
       fetchTableDetail(selectedTableId);
       fetchMetrics(selectedTableId);
+      setGeneratedDescription(""); // Reset doc text when switching tables
     }
   }, [selectedTableId]);
 
@@ -32,11 +34,9 @@ export default function TableExplorer() {
     try {
       const res = await api.get("/api/tables/");
       setTables(res.data);
-      if (res.data.length > 0) {
-        setSelectedTableId(res.data[0].id);
-      }
+      if (res.data.length > 0) setSelectedTableId(res.data[0].id);
     } catch (err) {
-      console.error("Failed to fetch tables", err);
+      toast.error("Failed to fetch tables");
     } finally {
       setLoadingTables(false);
     }
@@ -48,7 +48,7 @@ export default function TableExplorer() {
       const res = await api.get(`/api/table/${id}/`);
       setTableDetail(res.data);
     } catch (err) {
-      console.error("Failed to fetch table details", err);
+      toast.error("Failed to load table details");
       setTableDetail(null);
     } finally {
       setLoadingDetail(false);
@@ -60,22 +60,22 @@ export default function TableExplorer() {
       const res = await api.get(`/api/metrics/${id}/`);
       setMetrics(res.data);
     } catch (err) {
-      console.error("Failed to fetch metrics", err);
+      toast.error("Failed to fetch metrics");
       setMetrics(null);
     }
   };
 
   const handleGenerateDocs = async (tableId) => {
-    setDocLoading(true);
+    setDocLoadingId(tableId);
     try {
       const response = await api.post(`/api/generate-docs/${tableId}/`);
       const { documentation } = response.data;
       setGeneratedDescription(documentation);
+      toast.success("Documentation generated");
     } catch (error) {
-      console.error("Error generating docs", error);
-      alert("Failed to generate documentation. Check server logs.");
+      toast.error("Failed to generate docs. Check backend.");
     } finally {
-      setDocLoading(false);
+      setDocLoadingId(null);
     }
   };
 
@@ -96,7 +96,7 @@ export default function TableExplorer() {
                 className={cn(
                   "group px-3 py-2 rounded-md hover:bg-blue-50 border cursor-pointer transition-all duration-150",
                   table.id === selectedTableId &&
-                  "bg-blue-100 text-blue-800 font-semibold"
+                    "bg-blue-100 text-blue-800 font-semibold"
                 )}
               >
                 <div className="flex justify-between items-center">
@@ -110,11 +110,11 @@ export default function TableExplorer() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={docLoading}
+                    disabled={docLoadingId === table.id}
                     className="ml-2"
                     onClick={() => handleGenerateDocs(table.id)}
                   >
-                    {docLoading ? "..." : "Docs"}
+                    {docLoadingId === table.id ? "..." : "Docs"}
                   </Button>
                 </div>
               </li>
@@ -129,7 +129,7 @@ export default function TableExplorer() {
           <Skeleton className="h-full" />
         ) : (
           <div className="space-y-8">
-            {/* Basic Info */}
+            {/* Table Info */}
             <section>
               <h2 className="text-2xl font-bold mb-1">{tableDetail.name}</h2>
               <p className="text-gray-600">
@@ -176,7 +176,7 @@ export default function TableExplorer() {
               )}
             </section>
 
-            {/* Field-level Metrics */}
+            {/* Field Metrics */}
             <section>
               <h3 className="font-semibold text-lg mb-2">📊 Field Metrics</h3>
               {metrics ? (
@@ -227,7 +227,9 @@ export default function TableExplorer() {
                     <li key={idx}>
                       {incident.created_at.slice(0, 10)} —{" "}
                       <strong>{incident.title}</strong>{" "}
-                      <span className="text-gray-500">({incident.status})</span>
+                      <span className="text-gray-500">
+                        ({incident.status})
+                      </span>
                     </li>
                   ))}
                 </ul>

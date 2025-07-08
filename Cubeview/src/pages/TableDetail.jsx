@@ -2,35 +2,52 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "@/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 const TableDetail = () => {
   const { tableId } = useParams();
   const [table, setTable] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await api.get(`/api/table/${tableId}/`);
-      setTable(res.data);
-    };
+      try {
+        const [tableRes, metricsRes] = await Promise.all([
+          api.get(`/api/table/${tableId}/`),
+          api.get(`/api/metrics/${tableId}/`)
+        ]);
 
-    const fetchMetrics = async () => {
-      const res = await api.get(`/api/metrics/${tableId}/`);
-      setMetrics(res.data);
+        setTable(tableRes.data);
+        setMetrics(metricsRes.data);
+      } catch (err) {
+        toast.error("Failed to load table or metrics");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
-    fetchMetrics();
   }, [tableId]);
 
-  if (!table) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+
+  if (!table) return <p className="text-sm text-red-500">Table not found.</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <h1 className="text-2xl font-bold">{table.name}</h1>
-      <p className="text-gray-500">{table.description}</p>
+      <p className="text-gray-500">{table.description || "No description available"}</p>
 
-      {/* Field Metrics */}
       <Card>
         <CardContent className="p-4">
           <h2 className="text-lg font-semibold mb-2">📊 Field Metrics</h2>
@@ -46,7 +63,7 @@ const TableDetail = () => {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">Loading metrics...</p>
+            <p className="text-sm text-gray-500">No metrics available.</p>
           )}
         </CardContent>
       </Card>

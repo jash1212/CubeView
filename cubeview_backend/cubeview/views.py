@@ -1,95 +1,71 @@
+# Standard Library
+import traceback
 from datetime import timedelta
-from django.db import connection
+
+# Django
+from django.contrib.auth import get_user_model
+from django.db.models import Avg, Count, Q
+from django.db.models.functions import TruncDate
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.timezone import now
+
+# REST Framework
 from rest_framework import generics, status
-from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
-from django.utils import timezone
-from django.utils.timezone import now, timedelta
+from rest_framework.views import APIView
 
-from django.db.models.functions import TruncDate
-from django.db.models import Count, Avg
+# Third-Party
+import psycopg2
 
-from .utils.check_data_quality import run_data_quality_checks
-from .serializers import IncidentSerializer, ExportedMetadataSerializer
+# Local App: Models
 from .models import (
     DataTable,
+    ColumnMetadata,
     FieldMetric,
     Incident,
     DataQualityCheck,
+    MetricHistory,
     UserDatabaseConnection,
-    ColumnMetadata,
     Tag,
     DataTableTag,
 )
-from cubeview.serializers import IncidentSerializer
-from django.db.models import Q
-from django.db import models
 
-from .utils.generate_documentation import (
-    generate_table_documentation as generate_doc_for_table,
+# Local App: Serializers
+from .serializers import (
+    UserSerializer,
+    RegisterSerializer,
+    DataTableSerializer,
+    UserDatabaseConnectionSerializer,
+    IncidentSerializer,
+    ExportedMetadataSerializer,
 )
-import traceback
+
+# Local App: Utils
+
+from .utils.check_data_quality import run_data_quality_checks
+from .utils.generate_documentation import generate_table_documentation as generate_doc_for_table
+
+# ML
+from .ml.utils import detect_anomalies
 
 
-from django.shortcuts import get_object_or_404
-
-import psycopg2
+User = get_user_model()
 
 
-# Utility: get user active db connection name
-
-
-def get_active_connection_name(user):
-    active_db = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
-    return active_db.name if active_db else None
+# Utils
 def get_active_connection(user):
     return UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
 
 
+class IncidentPagination(PageNumberPagination):
+    page_size = 20
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_user_incidents(request):
-    user = request.user
-    incidents = Incident.objects.filter(related_table__user=user).order_by(
-        "-created_at"
-    )
-    serializer = IncidentSerializer(incidents, many=True)
-    return Response(serializer.data)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def run_quality_checks(request):
-    user = request.user
-    result = run_data_quality_checks(user)
-    return Response({"result": result})
-
-
-from .models import (
-    DataQualityCheck,
-    UserDatabaseConnection,
-    DataTable,
-    ColumnMetadata,
-    Tag,
-    Incident,
-)
-
-from .serializers import (
-    UserDatabaseConnectionSerializer,
-    UserSerializer,
-    RegisterSerializer,
-    DataTableSerializer,
-)
-
-User = get_user_model()
-
-# ------------------ AUTH ------------------
-
+# ---------------- AUTH ----------------
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -111,8 +87,26 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 
-# ------------------ DASHBOARD ------------------
+# ---------------- INCIDENTS ----------------
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_incidents(request):
+    user = request.user
+    incidents = Incident.objects.filter(related_table__user=user).order_by("-created_at")
+    serializer = IncidentSerializer(incidents, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def run_quality_checks(request):
+    user = request.user
+    result = run_data_quality_checks(user)
+    return Response({"result": result})
+
+
+# ---------------- DASHBOARD ----------------
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -125,18 +119,11 @@ def dashboard_data(request):
     total_tables = DataTable.objects.filter(user=user, connection=conn).count()
     total_fields = ColumnMetadata.objects.filter(table__user=user, table__connection=conn).count()
     total_sources = UserDatabaseConnection.objects.filter(user=user).count()
+    total_jobs = 0  # Future: add job tracking
 
-    total_jobs = 0
-
-    last_check = (
-        DataQualityCheck.objects.filter(table__user=user, table__connection=conn)
-        .order_by("-run_time")
-        .first()
-    )
     checks = DataQualityCheck.objects.filter(table__user=user, table__connection=conn)
-    avg_pass = checks.aggregate(models.Avg("passed_percentage"))[
-        "passed_percentage__avg"
-    ]
+    last_check = checks.order_by("-run_time").first()
+    avg_pass = checks.aggregate(Avg("passed_percentage")).get("passed_percentage__avg", 0) or 0
 
     recent_tags = (
         Tag.objects.filter(datatabletag__table__user=user, datatabletag__table__connection=conn)
@@ -144,26 +131,20 @@ def dashboard_data(request):
         .distinct()[:5]
     )
 
-    print("user:", user)
-    print("conn:", conn)
-    print("Tables found:", total_tables)
-
-    return Response(
-        {
-            "connected_tables": total_tables,
-            "data_overview": {
-                "sources": total_sources,
-                "tables": total_tables,
-                "fields": total_fields,
-                "jobs": total_jobs,
-            },
-            "data_quality": {
-                "last_check": last_check.run_time if last_check else None,
-                "avg_pass": avg_pass if avg_pass else 0,
-            },
-            "recent_tags": list(recent_tags),
-        }
-    )
+    return Response({
+        "connected_tables": total_tables,
+        "data_overview": {
+            "sources": total_sources,
+            "tables": total_tables,
+            "fields": total_fields,
+            "jobs": total_jobs,
+        },
+        "data_quality": {
+            "last_check": last_check.run_time if last_check else None,
+            "avg_pass": avg_pass,
+        },
+        "recent_tags": list(recent_tags),
+    })
 
 
 @api_view(["GET"])
@@ -177,8 +158,7 @@ def dashboard_summary(request):
     return Response(data)
 
 
-# ------------------ DB CONNECTION ------------------
-
+# ---------------- DATABASE CONNECTION ----------------
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -187,7 +167,6 @@ def connect_db(request):
     data = request.data
 
     try:
-        # ✅ Use correct keys from frontend
         conn = psycopg2.connect(
             host=data["host"],
             port=int(data.get("port", 5432)),
@@ -199,7 +178,6 @@ def connect_db(request):
         )
         conn.close()
 
-        # ✅ Save DB connection
         UserDatabaseConnection.objects.update_or_create(
             user=user,
             defaults={
@@ -215,17 +193,14 @@ def connect_db(request):
             },
         )
 
-        return Response(
-            {"message": "Database connected and saved successfully!"}, status=200
-        )
+        return Response({"message": "Database connected and saved successfully!"}, status=200)
 
     except Exception as e:
         print("🔴 DB Connection Error:", str(e))
         return Response({"error": str(e)}, status=400)
 
 
-# ------------------ METADATA COLLECTION ------------------
-
+# ---------------- METADATA COLLECTION ----------------
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -245,7 +220,6 @@ def collect_metadata(request):
         )
         cursor = conn.cursor()
 
-        # 🧠 Get latest table names from the database
         cursor.execute("""
             SELECT table_name
             FROM information_schema.tables
@@ -253,16 +227,13 @@ def collect_metadata(request):
         """)
         current_tables = set(row[0] for row in cursor.fetchall())
 
-        # 🗑️ Delete tables from CubeView that no longer exist
         existing_tables = DataTable.objects.filter(user=user, connection=db_conn)
         for t in existing_tables:
             if t.name not in current_tables:
                 print("🗑️ Removing:", t.name)
                 t.delete()
 
-        # 🔁 Add/update tables
         for table_name in current_tables:
-            # Manually ensure no duplicates
             existing = DataTable.objects.filter(name=table_name, user=user, connection=db_conn)
             if existing.count() > 1:
                 existing.delete()
@@ -281,7 +252,6 @@ def collect_metadata(request):
                 dt.last_updated = timezone.now()
                 dt.save()
 
-            # 🔁 Update columns
             ColumnMetadata.objects.filter(table=dt).delete()
             cursor.execute("""
                 SELECT column_name, data_type
@@ -304,25 +274,25 @@ def collect_metadata(request):
     except UserDatabaseConnection.DoesNotExist:
         return Response({"error": "No active DB connection found for this user."}, status=404)
     except Exception as e:
-        import traceback
         print("🔴 Metadata Collection Error:")
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 
-# ------------------ FETCH USER TABLES ------------------
-
+# ------------------ USER DB CONNECTION ------------------
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_db_connection(request):
     try:
-        conn = UserDatabaseConnection.objects.get(user=request.user)
+        conn = get_active_connection(request.user)
         serializer = UserDatabaseConnectionSerializer(conn)
         return Response(serializer.data)
-    except UserDatabaseConnection.DoesNotExist:
+    except:
         return Response({})
 
+
+# ------------------ DASHBOARD OVERVIEW ------------------
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -335,27 +305,23 @@ def dashboard_overview(request):
     total_fields = sum([table.column_count or 0 for table in tables])
     total_tags = Tag.objects.filter(user=user).count()
 
-    return Response(
-        {
-            "data_sources": 1,
-            "tables": total_tables,
-            "fields": total_fields,
-            "jobs": 0,
-        }
-    )
+    return Response({
+        "data_sources": 1,
+        "tables": total_tables,
+        "fields": total_fields,
+        "jobs": 0,
+    })
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def health_score(request):
     user = request.user
-    db_conn = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
-    if not db_conn:
+    conn = get_active_connection(user)
+    if not conn:
         return Response({"error": "No active DB connection."}, status=404)
 
-    checks = DataQualityCheck.objects.filter(table__connection=db_conn)
-
-
+    checks = DataQualityCheck.objects.filter(table__connection=conn)
     if not checks.exists():
         return Response({"score": 100, "status": "No checks run yet."})
 
@@ -375,35 +341,26 @@ def health_score(request):
     return Response({"score": score, "status": message})
 
 
+# ------------------ INCIDENTS ------------------
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def incident_summary(request):
     user = request.user
     conn = get_active_connection(user)
-    incidents = Incident.objects.filter(
-        related_table__user=user, related_table__connection=conn
-    )
+    incidents = Incident.objects.filter(related_table__user=user, related_table__connection=conn)
 
-    categories = [
-        "volume",
-        "freshness",
-        "schema_drift",
-        "field_health",
-        "job_failure",
-        "custom",
-    ]
-
+    categories = ["volume", "freshness", "schema_drift", "field_health", "job_failure", "custom"]
     counts = {cat: 0 for cat in categories}
 
-    for incident in incidents:
-        itype = getattr(incident, "incident_type", "custom").lower()
+    for i in incidents:
+        itype = (i.incident_type or "custom").lower()
         if itype in counts:
             counts[itype] += 1
         else:
             counts["custom"] += 1
 
     return Response(counts)
-
 
 
 @api_view(["GET"])
@@ -414,164 +371,20 @@ def recent_incidents(request):
     since = timezone.now() - timedelta(days=days)
 
     incidents = Incident.objects.filter(
-        related_table__user=user, created_at__gte=since
-    ).order_by("-created_at")[:10]
+        related_table__user=user,
+        created_at__gte=since
+    ).select_related("related_table").order_by("-created_at")[:10]
 
-    data = []
-    for incident in incidents:
-        data.append(
-            {
-                "table": (
-                    incident.related_table.name if incident.related_table else "N/A"
-                ),
-                "type": getattr(incident, "incident_type", "Custom"),
-                "time": incident.created_at,
-                "count": 1,
-            }
-        )
-
-    return Response(data)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def fetch_user_tables(request):
-    user = request.user
-    conn = get_active_connection(user)
-
-    tables = DataTable.objects.filter(user=user, connection= conn).prefetch_related(
-        "columns"
-    )
-
-    data = []
-    for table in tables:
-        tags = table.datatabletag_set.select_related("tag").values_list(
-            "tag__name", flat=True
-        )
-        data.append(
-            {
-                "id": table.id,
-                "name": table.name,
-                "source": table.source,
-                "description": table.description,
-                "created_at": table.created_at,
-                "last_updated": table.last_updated,
-                "tags": list(tags),
-            }
-        )
-
-    return Response(data)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def table_detail(request, table_id):
-    try:
-        table = DataTable.objects.get(id=table_id, user=request.user)
-        columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
-        checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:10]
-        incidents = Incident.objects.filter(related_table=table).order_by(
-            "-created_at"
-        )[:10]
-
-        return Response(
-            {
-                "id": table.id,
-                "name": table.name,
-                "source": table.source,
-                "description": table.description,
-                "created_at": table.created_at,
-                "last_updated": table.last_updated,
-                "columns": list(columns),
-                "quality_checks": [
-                    {
-                        "run_time": c.run_time,
-                        "passed_percentage": c.passed_percentage,
-                    }
-                    for c in checks
-                ],
-                "incidents": [
-                    {
-                        "title": i.title,
-                        "status": i.status,
-                        "created_at": i.created_at,
-                    }
-                    for i in incidents
-                ],
-            }
-        )
-    except DataTable.DoesNotExist:
-        return Response({"error": "Table not found"}, status=404)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def table_detail_view(request, id):
-    user = request.user
-    table = get_object_or_404(DataTable, id=id, user=user)
-
-    # Basic info
-    data = {
-        "id": table.id,
-        "name": table.name,
-        "description": table.description,
-        "source": table.source,
-        "created_at": table.created_at,
-        "last_updated": table.last_updated,
-        "owner": table.user.username,
-    }
-
-    # Tags
-    tags = Tag.objects.filter(datatabletag__table=table).values_list("name", flat=True)
-    data["tags"] = list(tags)
-
-    # Columns
-    columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
-    data["columns"] = list(columns)
-
-    # Quality checks
-    checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:5]
-    data["quality_checks"] = [
-        {"run_time": c.run_time, "passed_percentage": c.passed_percentage}
-        for c in checks
-    ]
-
-    # Incidents
-    incidents = Incident.objects.filter(related_table=table).order_by("-created_at")[
-        :10
-    ]
-    data["incidents"] = [
+    data = [
         {
-            "title": i.title,
-            "description": i.description,
-            "status": i.status,
-            "created_at": i.created_at,
+            "table": i.related_table.name if i.related_table else "N/A",
+            "type": i.incident_type or "Custom",
+            "time": i.created_at,
+            "count": 1,
         }
         for i in incidents
     ]
 
-    return Response(data)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def list_user_tables(request):
-    user = request.user
-    conn = get_active_connection(user)
-    tables = DataTable.objects.filter(user=user, connection=conn)
-    data = []
-    for table in tables:
-        data.append(
-            {
-                "id": table.id,
-                "name": table.name,
-                "description": table.description,
-                "last_updated": table.last_updated,
-                "tags": list(
-                    table.datatabletag_set.all().values_list("tag__name", flat=True)
-                ),
-            }
-        )
     return Response(data)
 
 
@@ -583,39 +396,37 @@ def list_incidents(request):
     table_filter = request.GET.get("table")
     type_filter = request.GET.get("type")
 
-    try:
-        incidents = Incident.objects.filter(related_table__user=user)
+    incidents = Incident.objects.filter(related_table__user=user)
 
-        if status_filter:
-            incidents = incidents.filter(status=status_filter)
+    if status_filter:
+        incidents = incidents.filter(status=status_filter)
+    if table_filter:
+        incidents = incidents.filter(related_table__name=table_filter)
+    if type_filter:
+        incidents = incidents.filter(incident_type=type_filter)
 
-        if table_filter:
-            incidents = incidents.filter(related_table__name=table_filter)
+    incidents = incidents.select_related("related_table").order_by("-created_at")
 
-        if type_filter:
-            incidents = incidents.filter(incident_type=type_filter)
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
+    result_page = paginator.paginate_queryset(incidents, request)
 
-        data = [
-            {
-                "id": i.id,
-                "title": i.title,
-                "status": i.status,
-                "type": getattr(i, "incident_type", "Unknown"),
-                "severity": getattr(i, "severity", None),  # ✅ Fix here
-                "table": i.related_table.name if i.related_table else "N/A",
-                "created_at": i.created_at,
-                "description": i.description,
-                "resolved_at": i.resolved_at,
-                "table_name": i.related_table.name if i.related_table else "N/A",
-            }
-            for i in incidents.order_by("-created_at")
-        ]
+    data = [
+        {
+            "id": i.id,
+            "title": i.title,
+            "status": i.status,
+            "type": i.incident_type or "Unknown",
+            "severity": i.severity,
+            "table": i.related_table.name if i.related_table else "N/A",
+            "created_at": i.created_at,
+            "description": i.description,
+            "resolved_at": i.resolved_at,
+        }
+        for i in result_page
+    ]
 
-        return Response(data)
-
-    except Exception as e:
-        print("🔴 Incident Fetch Error:", str(e))
-        return Response({"error": str(e)}, status=500)
+    return paginator.get_paginated_response(data)
 
 
 @api_view(["PATCH"])
@@ -634,36 +445,134 @@ def resolve_incident(request, pk):
 @permission_classes([IsAuthenticated])
 def incident_filter_options(request):
     user = request.user
-    tables = (
-        Incident.objects.filter(related_table__user=user)
-        .values_list("related_table__name", flat=True)
-        .distinct()
-    )
-    types = (
-        Incident.objects.filter(related_table__user=user)
-        .values_list("incident_type", flat=True)
-        .distinct()
-    )
-    return Response(
-        {
-            "tables": list(tables),
-            "types": list(types),
-        }
-    )
+    tables = Incident.objects.filter(related_table__user=user).values_list("related_table__name", flat=True).distinct()
+    types = Incident.objects.filter(related_table__user=user).values_list("incident_type", flat=True).distinct()
+    return Response({"tables": list(tables), "types": list(types)})
 
+
+# ------------------ TABLE VIEWS ------------------
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def fetch_user_tables(request):
+    user = request.user
+    conn = get_active_connection(user)
+    tables = DataTable.objects.filter(user=user, connection=conn).prefetch_related("datatabletag_set", "columns")
+
+    data = []
+    for t in tables:
+        tags = t.datatabletag_set.select_related("tag").values_list("tag__name", flat=True)
+        data.append({
+            "id": t.id,
+            "name": t.name,
+            "source": t.source,
+            "description": t.description,
+            "created_at": t.created_at,
+            "last_updated": t.last_updated,
+            "tags": list(tags),
+        })
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_user_tables(request):
+    user = request.user
+    conn = get_active_connection(user)
+    tables = DataTable.objects.filter(user=user, connection=conn)
+
+    data = []
+    for t in tables:
+        tags = t.datatabletag_set.values_list("tag__name", flat=True)
+        data.append({
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "last_updated": t.last_updated,
+            "tags": list(tags),
+        })
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def table_detail(request, table_id):
+    user = request.user
+    table = get_object_or_404(DataTable, id=table_id, user=user)
+
+    columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
+    checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:10]
+    incidents = Incident.objects.filter(related_table=table).order_by("-created_at")[:10]
+
+    return Response({
+        "id": table.id,
+        "name": table.name,
+        "source": table.source,
+        "description": table.description,
+        "created_at": table.created_at,
+        "last_updated": table.last_updated,
+        "columns": list(columns),
+        "quality_checks": [
+            {"run_time": c.run_time, "passed_percentage": c.passed_percentage}
+            for c in checks
+        ],
+        "incidents": [
+            {"title": i.title, "status": i.status, "created_at": i.created_at}
+            for i in incidents
+        ]
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def table_detail_view(request, id):
+    user = request.user
+    table = get_object_or_404(DataTable, id=id, user=user)
+
+    tags = Tag.objects.filter(datatabletag__table=table).values_list("name", flat=True)
+    columns = ColumnMetadata.objects.filter(table=table).values("name", "data_type")
+    checks = DataQualityCheck.objects.filter(table=table).order_by("-run_time")[:5]
+    incidents = Incident.objects.filter(related_table=table).order_by("-created_at")[:10]
+
+    return Response({
+        "id": table.id,
+        "name": table.name,
+        "description": table.description,
+        "source": table.source,
+        "created_at": table.created_at,
+        "last_updated": table.last_updated,
+        "owner": table.user.username,
+        "tags": list(tags),
+        "columns": list(columns),
+        "quality_checks": [
+            {"run_time": c.run_time, "passed_percentage": c.passed_percentage}
+            for c in checks
+        ],
+        "incidents": [
+            {
+                "title": i.title,
+                "description": i.description,
+                "status": i.status,
+                "created_at": i.created_at,
+            }
+            for i in incidents
+        ],
+    })
+
+# ------------------ DOC GENERATION ------------------
 
 def generate_table_documentation(table_id):
-    table = DataTable.objects.get(id=table_id)
-    user = table.user
-
-    db_conn = UserDatabaseConnection.objects.get(user=user)
+    table = get_object_or_404(DataTable, id=table_id)
+    db_conn = get_active_connection(table.user)
+    if not db_conn:
+        raise Exception("Active DB connection not found.")
 
     conn = psycopg2.connect(
         host=db_conn.host,
         port=db_conn.port,
-        user=db_conn.username,  # ✅ FIXED
-        password=db_conn.password,  # ✅ FIXED
-        dbname=db_conn.database_name,  # ✅ FIXED
+        user=db_conn.username,
+        password=db_conn.password,
+        dbname=db_conn.database_name,
     )
 
     cursor = conn.cursor()
@@ -678,25 +587,27 @@ def generate_table_documentation(table_id):
 @permission_classes([IsAuthenticated])
 def generate_docs(request, table_id):
     try:
-        documentation = generate_table_documentation(table_id)
-        return Response({"documentation": documentation}, status=200)
+        doc = generate_table_documentation(table_id)
+        return Response({"documentation": doc}, status=200)
     except Exception as e:
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 
+# ------------------ FIELD METRICS ------------------
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def calculate_metrics(request, table_id):
     user = request.user
-    table = get_object_or_404(DataTable, id=table_id, owner=user)
-    db_conn = get_object_or_404(UserDatabaseConnection, user=user)
+    table = get_object_or_404(DataTable, id=table_id, user=user)
+    db_conn = get_active_connection(user)
+    if not db_conn:
+        return Response({"error": "No active DB connection."}, status=404)
 
     from .utils.field_metrics import calculate_field_metrics
-
     results = calculate_field_metrics(table, db_conn)
 
-    # Save metrics
     for metric in results:
         FieldMetric.objects.update_or_create(
             table=table, column=metric["column"], defaults=metric
@@ -708,10 +619,13 @@ def calculate_metrics(request, table_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def field_metrics(request, table_id):
-    try:
-        table = DataTable.objects.get(id=table_id, user=request.user)
-        db_conn = UserDatabaseConnection.objects.get(user=request.user)
+    user = request.user
+    table = get_object_or_404(DataTable, id=table_id, user=user)
+    db_conn = get_active_connection(user)
+    if not db_conn:
+        return Response({"error": "No active DB connection."}, status=404)
 
+    try:
         conn = psycopg2.connect(
             host=db_conn.host,
             port=db_conn.port,
@@ -721,19 +635,14 @@ def field_metrics(request, table_id):
         )
         cursor = conn.cursor()
 
-        # Get column names
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_schema = 'public' AND table_name = %s
-        """,
-            [table.name],
-        )
+        """, [table.name])
         columns = [row[0] for row in cursor.fetchall()]
 
         metrics = {}
-
         for col in columns:
             query = f"""
                 SELECT 
@@ -757,26 +666,24 @@ def field_metrics(request, table_id):
         return Response(metrics)
 
     except Exception as e:
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
+
+# ------------------ INCIDENT TREND ------------------
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def incident_trend(request):
+    user = request.user
     days = int(request.GET.get("days", 7))
     start_date = now().date() - timedelta(days=days)
-    user = request.user
 
     category_keys = [
-        "volume",
-        "freshness",
-        "schema_drift",
-        "job_failure",
-        "custom",
-        "field_health",
+        "volume", "freshness", "schema_drift",
+        "job_failure", "custom", "field_health",
     ]
 
-    # Query grouped data
     incidents = (
         Incident.objects.filter(
             created_at__date__gte=start_date,
@@ -798,9 +705,12 @@ def incident_trend(request):
             trend_map[date_str] = {k: 0 for k in category_keys}
             trend_map[date_str]["date"] = date_str
 
-        trend_map[date_str][raw_type] += entry["count"]
+        if raw_type in trend_map[date_str]:
+            trend_map[date_str][raw_type] += entry["count"]
+        else:
+            trend_map[date_str]["custom"] += entry["count"]
 
-    # Ensure all dates in range have at least 0s
+    # Fill in missing dates
     for i in range(days):
         d = (start_date + timedelta(days=i)).isoformat()
         if d not in trend_map:
@@ -808,24 +718,26 @@ def incident_trend(request):
             trend_map[d]["date"] = d
 
     trend_data = list(sorted(trend_map.values(), key=lambda x: x["date"]))
-
     return Response({"trend": trend_data})
 
 
+# ------------------ HEALTH SCORE TREND ------------------
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def health_score_trend(request):
+    user = request.user
     days = int(request.GET.get("days", 7))
     start_date = now().date() - timedelta(days=days)
-    user = request.user
-    db_conn = UserDatabaseConnection.objects.filter(user=user, is_active=True).first()
+    db_conn = get_active_connection(user)
     if not db_conn:
         return Response({"error": "No active DB connection."}, status=404)
 
     tables = (
         DataTable.objects.filter(
-            last_updated__date__gte=start_date, user=user, connection=db_conn
+            last_updated__date__gte=start_date, 
+            user=user, 
+            connection=db_conn
         )
         .annotate(day=TruncDate("last_updated"))
         .annotate(avg_score=Avg("data_quality_checks__passed_percentage"))
@@ -836,11 +748,80 @@ def health_score_trend(request):
     response_data = [
         {
             "date": entry["day"].isoformat(),
-            "avg_health_score": (
-                round(entry["avg_score"], 2) if entry["avg_score"] else 0.0
-            ),
+            "avg_health_score": round(entry["avg_score"], 2) if entry["avg_score"] else 0.0,
         }
         for entry in tables
     ]
-
     return Response(response_data)
+
+
+# ------------------ ML BULK ANOMALY CHECK ------------------
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def run_bulk_anomaly_check(request):
+    user = request.user
+    tables = DataTable.objects.filter(user=user)
+    results = []
+    anomalies = 0
+
+    for table in tables:
+        null_percent = getattr(table, 'null_percent', 0)
+        volume = getattr(table, 'row_count', 0)
+        schema_change = 1 if getattr(table, 'schema_changed_recently', False) else 0
+
+        for metric_type, value in [
+            ("null_percent", null_percent),
+            ("volume", volume),
+            ("schema_change", schema_change),
+        ]:
+            MetricHistory.objects.create(
+                table=table,
+                column=None,
+                metric_type=metric_type,
+                value=value,
+            )
+
+        is_anomaly = detect_anomalies(null_percent, volume, schema_change)
+
+        MetricHistory.objects.create(
+            table=table,
+            column=None,
+            metric_type="ml_anomaly",
+            value=float(is_anomaly),
+        )
+
+        if is_anomaly:
+            anomalies += 1
+            Incident.objects.create(
+                related_table=table,
+                incident_type="field_health",
+                severity="high",
+                status="ongoing",
+                title=f"ML Anomaly Detected in {table.name}",
+                description=f"Anomaly detected in '{table.name}' using Isolation Forest.",
+            )
+
+        results.append({
+            "table_name": table.name,
+            "anomaly": is_anomaly,
+            "null_percent": null_percent,
+            "volume": volume,
+            "schema_change": schema_change,
+        })
+
+    return Response({
+        "total_checked": len(tables),
+        "anomalies": anomalies,
+        "results": results,
+    })
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def incident_detail(request, pk):
+    try:
+        incident = Incident.objects.get(id=pk, related_table__user=request.user)
+        serializer = IncidentSerializer(incident)
+        return Response(serializer.data)
+    except Incident.DoesNotExist:
+        return Response({"detail": "Incident not found."}, status=status.HTTP_404_NOT_FOUND)

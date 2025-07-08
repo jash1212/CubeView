@@ -26,6 +26,9 @@ class DataTable(models.Model):
     blank=True,
     related_name="tables"
 )
+    null_percent = models.FloatField(default=0.0)
+    row_count = models.IntegerField(default=0)
+    schema_changed_recently = models.BooleanField(default=False)
 
 
     def __str__(self):
@@ -136,3 +139,13 @@ class FieldMetric(models.Model):
 
     class Meta:
         unique_together = ("table", "column")
+
+class MetricHistory(models.Model):
+    table = models.ForeignKey("DataTable", on_delete=models.CASCADE)
+    column = models.CharField(max_length=255, null=True, blank=True)  # Null for row count
+    metric_type = models.CharField(max_length=50)  # 'row_count', 'null_pct', 'distinct_pct'
+    value = models.FloatField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp"]

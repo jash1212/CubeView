@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import api from "@/api"; // Use your axios instance
+import { toast } from "sonner"; // or use `useToast` from shadcn
+import api from "@/api";
 
 const Settings = () => {
   const [connections, setConnections] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [editId, setEditId] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     db_type: "PostgreSQL",
@@ -23,11 +25,10 @@ const Settings = () => {
   const fetchConnections = async () => {
     try {
       const res = await api.get("/api/get-db/");
-      if (res.data) {
-        setConnections([res.data]);
-      }
+      if (res.data) setConnections([res.data]); // Assumes 1 connection per user
     } catch (err) {
-      console.error("❌ Failed to fetch connections:", err);
+      toast.error("Failed to fetch connections");
+      console.error(err);
     }
   };
 
@@ -43,43 +44,65 @@ const Settings = () => {
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      db_type: "PostgreSQL",
+      host: "",
+      port: 5432,
+      database_name: "",
+      username: "",
+      password: "",
+      check_frequency: "hourly",
+    });
+    setEditId(null);
+    setShowForm(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setErrorMsg("");
 
     try {
-      await api.post("/api/connect-db/", formData);
-      setShowForm(false);
-      setFormData({
-        name: "",
-        db_type: "PostgreSQL",
-        host: "",
-        port: 5432,
-        database_name: "",
-        username: "",
-        password: "",
-        check_frequency: "hourly",
-      });
+      if (editId) {
+        await api.put(`/api/update-db/${editId}/`, formData);
+        toast.success("Connection updated");
+      } else {
+        await api.post("/api/connect-db/", formData);
+        toast.success("Database connected");
+      }
+
       fetchConnections();
+      resetForm();
     } catch (err) {
       const msg = err.response?.data?.error || "Unknown error";
-      setErrorMsg(msg);
-      console.error("❌ Connection failed:", err);
+      toast.error(`Error: ${msg}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEdit = (conn) => {
+    setEditId(conn.id);
+    setFormData({ ...conn });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this connection?")) return;
+    try {
+      await api.delete(`/api/delete-db/${id}/`);
+      toast.success("Connection deleted");
+      fetchConnections();
+    } catch (err) {
+      toast.error("Failed to delete connection");
+      console.error(err);
     }
   };
 
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Database Settings</h2>
-
-      {errorMsg && (
-        <div className="bg-red-100 text-red-700 p-2 rounded text-sm">
-          ⚠️ {errorMsg}
-        </div>
-      )}
 
       <Button onClick={() => setShowForm((prev) => !prev)}>
         {showForm ? "Cancel" : "Connect New Database"}
@@ -107,7 +130,7 @@ const Settings = () => {
 
           <div className="col-span-1 sm:col-span-2">
             <Button type="submit" disabled={loading}>
-              {loading ? "Connecting..." : "Save Connection"}
+              {loading ? "Saving..." : editId ? "Update Connection" : "Save Connection"}
             </Button>
           </div>
         </form>
@@ -115,14 +138,23 @@ const Settings = () => {
 
       {connections.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          {connections.map((conn, idx) => (
-            <Card key={idx}>
+          {connections.map((conn) => (
+            <Card key={conn.id}>
               <CardContent className="p-4 space-y-1">
                 <p className="text-sm text-gray-500">Name: <span className="font-semibold">{conn.name}</span></p>
                 <p className="text-sm text-gray-500">Host: <span className="font-semibold">{conn.host}</span></p>
                 <p className="text-sm text-gray-500">Database: <span className="font-semibold">{conn.database_name}</span></p>
                 <p className="text-sm text-gray-500">Type: <span className="font-semibold">{conn.db_type}</span></p>
                 <p className="text-sm text-gray-500">Check Frequency: <span className="font-semibold">{conn.check_frequency}</span></p>
+
+                <div className="flex gap-2 mt-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(conn)}>
+                    Edit
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => handleDelete(conn.id)}>
+                    Delete
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
