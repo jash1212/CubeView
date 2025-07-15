@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner"; // or use `useToast` from shadcn
+import { toast } from "sonner";
 import api from "@/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 const Settings = () => {
   const [connections, setConnections] = useState([]);
@@ -25,7 +26,7 @@ const Settings = () => {
   const fetchConnections = async () => {
     try {
       const res = await api.get("/api/get-db/");
-      if (res.data) setConnections([res.data]); // Assumes 1 connection per user
+      if (res.data) setConnections([res.data]); // 1 connection/user
     } catch (err) {
       toast.error("Failed to fetch connections");
       console.error(err);
@@ -71,7 +72,6 @@ const Settings = () => {
         await api.post("/api/connect-db/", formData);
         toast.success("Database connected");
       }
-
       fetchConnections();
       resetForm();
     } catch (err) {
@@ -102,65 +102,101 @@ const Settings = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Database Settings</h2>
+      <motion.h2
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="text-3xl font-bold text-gray-800"
+      >
+        ⚙️ Database Settings
+      </motion.h2>
 
-      <Button onClick={() => setShowForm((prev) => !prev)}>
-        {showForm ? "Cancel" : "Connect New Database"}
+      <Button
+        onClick={() => setShowForm((prev) => !prev)}
+        className="rounded-xl px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:scale-105 transition-transform"
+      >
+        {showForm ? "Cancel" : "➕ Connect New Database"}
       </Button>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <Input name="name" value={formData.name} placeholder="Connection Name" onChange={handleChange} required />
-          <Input name="host" value={formData.host} placeholder="Host" onChange={handleChange} required />
-          <Input name="port" value={formData.port} type="number" placeholder="Port" onChange={handleChange} required />
-          <Input name="database_name" value={formData.database_name} placeholder="Database Name" onChange={handleChange} required />
-          <Input name="username" value={formData.username} placeholder="Username" onChange={handleChange} required />
-          <Input name="password" value={formData.password} type="password" placeholder="Password" onChange={handleChange} required />
-
-          <select
-            name="check_frequency"
-            value={formData.check_frequency}
-            onChange={handleChange}
-            className="border rounded px-3 py-2"
+      <AnimatePresence>
+        {showForm && (
+          <motion.form
+            onSubmit={handleSubmit}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-6 rounded-2xl shadow-md mt-4 backdrop-blur"
           >
-            <option value="minutely">Every Minute</option>
-            <option value="hourly">Every Hour</option>
-            <option value="daily">Every Day</option>
-          </select>
+            <Input name="name" value={formData.name} placeholder="Connection Name" onChange={handleChange} required />
+            <Input name="host" value={formData.host} placeholder="Host" onChange={handleChange} required />
+            <Input name="port" type="number" value={formData.port} placeholder="Port" onChange={handleChange} required />
+            <Input name="database_name" value={formData.database_name} placeholder="Database Name" onChange={handleChange} required />
+            <Input name="username" value={formData.username} placeholder="Username" onChange={handleChange} required />
+            <Input name="password" type="password" value={formData.password} placeholder="Password" onChange={handleChange} required />
 
-          <div className="col-span-1 sm:col-span-2">
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : editId ? "Update Connection" : "Save Connection"}
-            </Button>
-          </div>
-        </form>
-      )}
+            <select
+              name="check_frequency"
+              value={formData.check_frequency}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded-lg text-sm"
+            >
+              <option value="minutely">Every Minute</option>
+              <option value="hourly">Every Hour</option>
+              <option value="daily">Every Day</option>
+            </select>
+
+            <div className="col-span-1 sm:col-span-2">
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                disabled={loading}
+              >
+                {loading ? "Saving..." : editId ? "Update Connection" : "Save Connection"}
+              </Button>
+            </div>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
       {connections.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
           {connections.map((conn) => (
-            <Card key={conn.id}>
-              <CardContent className="p-4 space-y-1">
-                <p className="text-sm text-gray-500">Name: <span className="font-semibold">{conn.name}</span></p>
-                <p className="text-sm text-gray-500">Host: <span className="font-semibold">{conn.host}</span></p>
-                <p className="text-sm text-gray-500">Database: <span className="font-semibold">{conn.database_name}</span></p>
-                <p className="text-sm text-gray-500">Type: <span className="font-semibold">{conn.db_type}</span></p>
-                <p className="text-sm text-gray-500">Check Frequency: <span className="font-semibold">{conn.check_frequency}</span></p>
+            <motion.div
+              key={conn.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card className="rounded-xl bg-white shadow-md hover:shadow-lg transition">
+                <CardContent className="p-4 space-y-1">
+                  <p className="text-sm text-gray-600">🔌 <strong>{conn.name}</strong></p>
+                  <p className="text-sm text-gray-500">Host: {conn.host}</p>
+                  <p className="text-sm text-gray-500">Database: {conn.database_name}</p>
+                  <p className="text-sm text-gray-500">Type: {conn.db_type}</p>
+                  <p className="text-sm text-gray-500">Check Frequency: {conn.check_frequency}</p>
 
-                <div className="flex gap-2 mt-2">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(conn)}>
-                    Edit
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={() => handleDelete(conn.id)}>
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex gap-2 mt-3">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(conn)}>
+                      ✏️ Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDelete(conn.id)}>
+                      ❌ Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-gray-500 mt-4">No database connection found.</p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-sm text-gray-500 mt-4"
+        >
+          No database connection found.
+        </motion.p>
       )}
     </div>
   );

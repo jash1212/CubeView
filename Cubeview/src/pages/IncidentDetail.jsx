@@ -3,7 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "@/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "../lib/utils";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+import FancyLoader from "@/components/FancyLoader"; // adjust path as needed
+
 
 const IncidentDetail = () => {
   const { id } = useParams();
@@ -17,9 +21,7 @@ const IncidentDetail = () => {
     const fetchIncident = async () => {
       try {
         const res = await api.get(`/api/incidents/${id}/`);
-        if (active) {
-          setIncident(res.data);
-        }
+        if (active) setIncident(res.data);
       } catch (err) {
         console.error("Failed to fetch incident", err);
       } finally {
@@ -36,77 +38,120 @@ const IncidentDetail = () => {
   const resolveIncident = async () => {
     try {
       await api.patch(`/api/incidents/${id}/resolve/`);
-      alert("Marked as resolved");
       navigate("/incidents");
     } catch (err) {
       console.error("Failed to resolve", err);
     }
   };
 
-  if (loading) return <p className="text-gray-500">Loading incident details...</p>;
-  if (!incident) return <p className="text-red-500">Incident not found.</p>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-1/2" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  if (!incident) {
+    return <FancyLoader message="Fetching incidents..." />
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Incident Details</h1>
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+        🧠 Incident Details
+      </h1>
 
-      <Card>
-        <CardContent className="space-y-2 p-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">{incident.title || "Untitled Incident"}</h2>
-            <span
-              className={cn(
-                "text-xs px-2 py-1 rounded font-medium",
-                incident.status === "resolved"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-yellow-100 text-yellow-700"
-              )}
-            >
-              {incident.status?.toUpperCase()}
-            </span>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card className="rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition">
+          <CardContent className="space-y-4 p-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {incident.title || "Untitled Incident"}
+              </h2>
+              <span
+                className={cn(
+                  "text-xs px-3 py-1 rounded-full font-medium shadow-sm",
+                  incident.status === "resolved"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-yellow-100 text-yellow-700"
+                )}
+              >
+                {incident.status?.toUpperCase()}
+              </span>
+            </div>
 
-          {incident.description && (
-            <p className="text-sm text-gray-600">{incident.description}</p>
-          )}
-
-          <div className="text-sm text-gray-500 space-y-1">
-            <p>📌 Table: <span className="font-medium">{incident.table_name || "N/A"}</span></p>
-            <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
-            {incident.resolved_at && (
-              <p>✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}</p>
+            {incident.description && (
+              <p className="text-sm text-gray-600">{incident.description}</p>
             )}
-            {incident.type && (
-              <p>🔍 Type: <span className="text-indigo-600">{incident.type}</span></p>
-            )}
-            {incident.severity && (
-              <p>🔥 Severity:{" "}
-                <span
-                  className={cn(
-                    "font-semibold",
-                    incident.severity === "high" && "text-red-600",
-                    incident.severity === "medium" && "text-yellow-600",
-                    incident.severity === "low" && "text-green-600"
-                  )}
-                >
-                  {incident.severity}
+
+            <div className="text-sm text-gray-500 space-y-1">
+              <p>
+                📌 Table:{" "}
+                <span className="font-medium text-gray-800">
+                  {incident.table_name || "N/A"}
                 </span>
               </p>
+              <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
+              {incident.resolved_at && (
+                <p>✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}</p>
+              )}
+              {incident.type && (
+                <p>
+                  🔍 Type:{" "}
+                  <span className="text-indigo-600 font-medium">
+                    {incident.type}
+                  </span>
+                </p>
+              )}
+              {incident.severity && (
+                <p>
+                  🔥 Severity:{" "}
+                  <span
+                    className={cn(
+                      "font-semibold capitalize",
+                      incident.severity === "high" && "text-red-600",
+                      incident.severity === "medium" && "text-yellow-600",
+                      incident.severity === "low" && "text-green-600"
+                    )}
+                  >
+                    {incident.severity}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {incident.status === "ongoing" && (
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button size="sm" onClick={resolveIncident}>
+                  ✅ Mark as Resolved
+                </Button>
+              </motion.div>
             )}
-          </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-          {incident.status === "ongoing" && (
-            <Button size="sm" variant="outline" onClick={resolveIncident}>
-              Mark as Resolved
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      <Button variant="ghost" onClick={() => navigate(-1)}>
-        ← Back to Incidents
-      </Button>
-    </div>
+      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+        <Button
+          variant="ghost"
+          className="text-blue-600 hover:underline"
+          onClick={() => navigate(-1)}
+        >
+          ← Back to Incidents
+        </Button>
+      </motion.div>
+    </motion.div>
   );
 };
 

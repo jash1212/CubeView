@@ -10,7 +10,10 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { cn } from "../lib/utils";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import FancyLoader from "@/components/FancyLoader"; // adjust path as needed
+
 
 const Incidents = () => {
   const [availableTables, setAvailableTables] = useState([]);
@@ -24,7 +27,6 @@ const Incidents = () => {
 
   useEffect(() => {
     let active = true;
-
     const fetchOptions = async () => {
       try {
         const res = await api.get("/api/incidents/filters/");
@@ -35,7 +37,6 @@ const Incidents = () => {
         console.error("Failed to load filter options", err);
       }
     };
-
     fetchOptions();
     return () => {
       active = false;
@@ -45,7 +46,7 @@ const Incidents = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       fetchIncidents();
-    }, 200); // slight debounce
+    }, 200);
     return () => clearTimeout(timeout);
   }, [filters]);
 
@@ -83,8 +84,15 @@ const Incidents = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-800">Incidents</h1>
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 text-transparent bg-clip-text">
+        🧠 Incident Management
+      </h1>
 
       <div className="flex gap-6 text-sm text-gray-700">
         <span>🧾 Total: <strong>{summary.total}</strong></span>
@@ -92,6 +100,7 @@ const Incidents = () => {
         <span>⚠️ Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 
+      {/* Filters */}
       <div className="flex gap-4 flex-wrap">
         <Select
           value={filters.table || "all"}
@@ -105,7 +114,9 @@ const Incidents = () => {
           <SelectContent>
             <SelectItem value="all">All Tables</SelectItem>
             {availableTables.map((table) => (
-              <SelectItem key={table} value={table}>{table}</SelectItem>
+              <SelectItem key={table} value={table}>
+                {table}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -122,7 +133,9 @@ const Incidents = () => {
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {availableTypes.map((type) => (
-              <SelectItem key={type} value={type}>{type}</SelectItem>
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -151,94 +164,101 @@ const Incidents = () => {
       )}
 
       {loading ? (
-        <p className="text-gray-500">Loading incidents...</p>
-      ) : incidents.length === 0 ? (
+  <FancyLoader message="Fetching incidents..." />
+) : incidents.length === 0 ? (
+
         <div className="text-center text-sm text-gray-500 mt-8">
           No incidents found. 🎉
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <motion.div
+          layout
+          className="grid grid-cols-1 gap-4"
+        >
           {incidents
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .map((incident) => (
-              <Card key={incident.id}>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/incidents/${incident.id}`)}
-                    >
-                      <h2 className="text-lg font-bold text-blue-600 hover:underline">
-                        {incident.title}
-                      </h2>
-                      <p className="text-sm text-gray-600">{incident.description}</p>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded font-medium ${
-                        incident.status === "resolved"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {incident.status.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <p>
-                      📌 Table:{" "}
-                      <span className="font-medium">
-                        {incident.table_name || "N/A"}
+            .map((incident, idx) => (
+              <motion.div
+                key={incident.id}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
+              >
+                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition rounded-xl">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/incidents/${incident.id}`)}
+                      >
+                        <h2 className="text-lg font-bold text-blue-600 hover:underline">
+                          {incident.title}
+                        </h2>
+                        <p className="text-sm text-gray-600">{incident.description}</p>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded font-medium ${
+                          incident.status === "resolved"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {incident.status.toUpperCase()}
                       </span>
-                    </p>
-                    <p>
-                      🕒 Created:{" "}
-                      {new Date(incident.created_at).toLocaleString()}
-                    </p>
-                    {incident.resolved_at && (
-                      <p>
-                        ✅ Resolved:{" "}
-                        {new Date(incident.resolved_at).toLocaleString()}
-                      </p>
-                    )}
-                    {incident.type && (
-                      <p>
-                        🔍 Type:{" "}
-                        <span className="text-indigo-600">{incident.type}</span>
-                      </p>
-                    )}
-                    {incident.severity && (
-                      <p>
-                        🔥 Severity:{" "}
-                        <span
-                          className={cn(
-                            "font-semibold",
-                            incident.severity === "high" && "text-red-600",
-                            incident.severity === "medium" && "text-yellow-600",
-                            incident.severity === "low" && "text-green-600"
-                          )}
-                        >
-                          {incident.severity}
-                        </span>
-                      </p>
-                    )}
-                  </div>
+                    </div>
 
-                  {incident.status === "ongoing" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => resolveIncident(incident.id)}
-                    >
-                      Mark as Resolved
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <p>
+                        📌 Table:{" "}
+                        <span className="font-medium">{incident.table_name || "N/A"}</span>
+                      </p>
+                      <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
+                      {incident.resolved_at && (
+                        <p>
+                          ✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}
+                        </p>
+                      )}
+                      {incident.type && (
+                        <p>
+                          🔍 Type:{" "}
+                          <span className="text-indigo-600 font-medium">{incident.type}</span>
+                        </p>
+                      )}
+                      {incident.severity && (
+                        <p>
+                          🔥 Severity:{" "}
+                          <span
+                            className={cn(
+                              "font-semibold capitalize",
+                              incident.severity === "high" && "text-red-600",
+                              incident.severity === "medium" && "text-yellow-600",
+                              incident.severity === "low" && "text-green-600"
+                            )}
+                          >
+                            {incident.severity}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {incident.status === "ongoing" && (
+                      <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => resolveIncident(incident.id)}
+                        >
+                          Mark as Resolved
+                        </Button>
+                      </motion.div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

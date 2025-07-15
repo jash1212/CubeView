@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+// src/App.jsx
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -8,44 +9,44 @@ import Signup from "./pages/Signup";
 import TablesList from "./pages/TablesList";
 import Settings from "./pages/Settings";
 import Datasets from "@/pages/Datasets";
-// import TableDetail from "@/pages/TableDetail";
 import TableExplorer from "./pages/TableExplorer";
 import Incidents from "./pages/Incidents";
 import IncidentDetail from "@/pages/IncidentDetail";
-import TableDetail from "@/pages/TableDetail"; // adjust path if needed
-
-
-
-
+import TableDetail from "@/pages/TableDetail";
+import LandingPage from "@/pages/LandingPage"; // ✅ Added landing page route
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+    <Router>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/incidents/:id" element={<IncidentDetail />} />
-        <Route path="/tables/:tableId" element={<TableDetail />} />
+        {/* Protected Routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="incidents/:id" element={<IncidentDetail />} />
+          <Route path="tables/:tableId" element={<TableDetail />} />
 
-        <Route path="/datasets" element={<Datasets />} />
-        <Route path="/incidents" element={<Incidents />} />
-        {/* <Route path="/table/:tableId" element={<TableDetail />} /> */}
-        <Route path="/table-explorer" element={<TableExplorer />} />
+          <Route path="datasets" element={<Datasets />} />
+          <Route path="incidents" element={<Incidents />} />
+          <Route path="table-explorer" element={<TableExplorer />} />
 
-        <Route path="settings" element={<Settings />} />
-        <Route path="dashboard" element={<Dashboard />} /> {/* ✅ FIXED */}
-        <Route path="tables" element={<TablesList />} />
-        <Route path="connect-database" element={<ConnectDatabase />} />
-      </Route>
-    </Routes>
+          <Route path="settings" element={<Settings />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="tables" element={<TablesList />} />
+          <Route path="connect-database" element={<ConnectDatabase />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 }
 

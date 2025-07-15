@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 export default function TableExplorer() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function TableExplorer() {
     if (selectedTableId !== null) {
       fetchTableDetail(selectedTableId);
       fetchMetrics(selectedTableId);
-      setGeneratedDescription(""); // Reset doc text when switching tables
+      setGeneratedDescription("");
     }
   }, [selectedTableId]);
 
@@ -69,23 +70,27 @@ export default function TableExplorer() {
     setDocLoadingId(tableId);
     try {
       const response = await api.post(`/api/generate-docs/${tableId}/`);
-      const { documentation } = response.data;
-      setGeneratedDescription(documentation);
-      toast.success("Documentation generated");
+      setGeneratedDescription(response.data.documentation);
+      toast.success("✅ Documentation generated");
     } catch (error) {
-      toast.error("Failed to generate docs. Check backend.");
+      toast.error("⚠️ Failed to generate docs");
     } finally {
       setDocLoadingId(null);
     }
   };
 
   return (
-    <div className="flex h-full gap-6 p-4">
-      {/* Sidebar: Tables List */}
-      <aside className="w-1/4 bg-white border rounded-lg p-4 shadow-sm overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">Tables</h2>
+    <div className="flex h-full gap-6 p-6 bg-white min-h-screen">
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-1/4 bg-white border rounded-xl p-4 shadow-md overflow-y-auto"
+      >
+        <h2 className="text-lg font-semibold mb-4">📁 Tables</h2>
         {loadingTables ? (
-          <Skeleton className="h-48" />
+          <Skeleton className="h-48 w-full rounded-xl" />
         ) : tables.length === 0 ? (
           <p className="text-gray-500">No tables found</p>
         ) : (
@@ -94,9 +99,9 @@ export default function TableExplorer() {
               <li
                 key={table.id}
                 className={cn(
-                  "group px-3 py-2 rounded-md hover:bg-blue-50 border cursor-pointer transition-all duration-150",
+                  "group px-3 py-2 rounded-lg hover:bg-blue-50 border cursor-pointer transition-all duration-200",
                   table.id === selectedTableId &&
-                    "bg-blue-100 text-blue-800 font-semibold"
+                    "bg-blue-100 text-blue-800 font-semibold border-blue-300"
                 )}
               >
                 <div className="flex justify-between items-center">
@@ -106,7 +111,6 @@ export default function TableExplorer() {
                   >
                     {table.name}
                   </button>
-
                   <Button
                     size="sm"
                     variant="outline"
@@ -121,21 +125,33 @@ export default function TableExplorer() {
             ))}
           </ul>
         )}
-      </aside>
+      </motion.aside>
 
-      {/* Main Detail Panel */}
-      <main className="flex-1 bg-white border rounded-lg p-6 shadow-sm overflow-y-auto">
+      {/* Details Panel */}
+      <motion.main
+        className="flex-1 bg-white border rounded-xl p-6 shadow-md overflow-y-auto"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.6 }}
+      >
         {loadingDetail || !tableDetail ? (
-          <Skeleton className="h-full" />
+          <Skeleton className="h-[500px] w-full rounded-xl" />
         ) : (
-          <div className="space-y-8">
-            {/* Table Info */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-8"
+          >
+            {/* Header */}
             <section>
-              <h2 className="text-2xl font-bold mb-1">{tableDetail.name}</h2>
+              <h2 className="text-3xl font-bold mb-1 text-primary">
+                {tableDetail.name}
+              </h2>
               <p className="text-gray-600">
                 {tableDetail.description || "No description available"}
               </p>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 Source: {tableDetail.source} | Created:{" "}
                 {new Date(tableDetail.created_at).toLocaleString()}
               </p>
@@ -143,7 +159,7 @@ export default function TableExplorer() {
 
             {/* Tags */}
             <section>
-              <h3 className="font-semibold text-lg mb-2">Tags</h3>
+              <h3 className="font-semibold text-lg mb-2">🏷️ Tags</h3>
               {tableDetail.tags?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {tableDetail.tags.map((tag, i) => (
@@ -162,7 +178,7 @@ export default function TableExplorer() {
 
             {/* Columns */}
             <section>
-              <h3 className="font-semibold text-lg mb-2">Columns</h3>
+              <h3 className="font-semibold text-lg mb-2">📄 Columns</h3>
               {tableDetail.columns?.length > 0 ? (
                 <ul className="grid grid-cols-2 gap-2 text-sm">
                   {tableDetail.columns.map((col, idx) => (
@@ -201,7 +217,7 @@ export default function TableExplorer() {
 
             {/* Quality Checks */}
             <section>
-              <h3 className="font-semibold text-lg mb-2">Quality Checks</h3>
+              <h3 className="font-semibold text-lg mb-2">🧪 Quality Checks</h3>
               {tableDetail.quality_checks?.length > 0 ? (
                 <ul className="space-y-1 text-sm">
                   {tableDetail.quality_checks.map((check, idx) => (
@@ -220,7 +236,7 @@ export default function TableExplorer() {
 
             {/* Incidents */}
             <section>
-              <h3 className="font-semibold text-lg mb-2">Incidents</h3>
+              <h3 className="font-semibold text-lg mb-2">🚨 Incidents</h3>
               {tableDetail.incidents?.length > 0 ? (
                 <ul className="space-y-1 text-sm">
                   {tableDetail.incidents.map((incident, idx) => (
@@ -238,20 +254,18 @@ export default function TableExplorer() {
               )}
             </section>
 
-            {/* Generated Docs */}
+            {/* Docs */}
             <section>
-              <h3 className="font-semibold text-lg mb-2">Generated Docs</h3>
+              <h3 className="font-semibold text-lg mb-2">🧠 Generated Docs</h3>
               <div className="p-4 bg-blue-50 text-blue-900 text-sm rounded whitespace-pre-line border">
                 {generatedDescription || (
-                  <span className="text-gray-400">
-                    Click 'Docs' to generate.
-                  </span>
+                  <span className="text-gray-400">Click 'Docs' to generate.</span>
                 )}
               </div>
             </section>
-          </div>
+          </motion.div>
         )}
-      </main>
+      </motion.main>
     </div>
   );
 }

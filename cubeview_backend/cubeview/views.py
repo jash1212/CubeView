@@ -188,7 +188,7 @@ def connect_db(request):
                 "username": data["username"],
                 "password": data["password"],
                 "database_name": data["database_name"],
-                "check_frequency": data.get("check_frequency", "hourly"),
+                
                 "is_active": True,
             },
         )
@@ -793,14 +793,26 @@ def run_bulk_anomaly_check(request):
 
         if is_anomaly:
             anomalies += 1
+        
+            # Determine root cause
+            if schema_change:
+                incident_type = "schema_drift"
+            elif volume < 100:  # Or your defined threshold
+                incident_type = "volume"
+            elif null_percent > 20:  # Example threshold
+                incident_type = "freshness"
+            else:
+                incident_type = "field_health"  # Default fallback
+        
             Incident.objects.create(
                 related_table=table,
-                incident_type="field_health",
+                incident_type=incident_type,
                 severity="high",
                 status="ongoing",
                 title=f"ML Anomaly Detected in {table.name}",
-                description=f"Anomaly detected in '{table.name}' using Isolation Forest.",
+                description=f"Anomaly type: {incident_type.replace('_', ' ').title()} in '{table.name}'",
             )
+
 
         results.append({
             "table_name": table.name,

@@ -1,91 +1,121 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import axios from "axios";
+import NeuralBackground from "../components/NeuralBackground";
+import { toast } from "sonner";
 
-function Signup() {
+export default function SignupPage() {
   const navigate = useNavigate();
-
-  const [step, setStep] = useState(1); // 👈 Step tracker
-
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
-    db_type: "postgres",
-    host: "",
-    port: 5432,
-    database: "",
-    db_user: "",
-    db_password: "",
-    check_frequency: "hour",
+    confirmPassword: "",
   });
-
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const nextStep = (e) => {
-    e.preventDefault();
-    setStep(2);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      await axios.post("http://localhost:8000/api/register/", formData);
-      
+      await axios.post("http://localhost:8000/api/register/", {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      toast.success("Registered successfully! Please log in.");
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data || "Signup failed");
+      const message =
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        "Registration failed.";
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4">Sign Up</h2>
-
-      {step === 1 && (
-        <form onSubmit={nextStep} className="space-y-4">
-          <Input name="username" placeholder="Username" onChange={handleChange} required />
-          <Input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-          <Input name="password" type="password" placeholder="Password" onChange={handleChange} required />
-          <Button type="submit" className="w-full">Next</Button>
-        </form>
-      )}
-
-      {step === 2 && (
+    <div className="relative min-h-screen flex items-center justify-center bg-white overflow-hidden">
+      <NeuralBackground />
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="z-10 w-full max-w-md p-6 backdrop-blur-md bg-white/70 border border-gray-200 rounded-2xl shadow-xl"
+      >
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+          🧬 Create Your Account
+        </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <select name="db_type" onChange={handleChange} className="w-full border rounded p-2">
-            <option value="postgres">PostgreSQL</option>
-            <option value="mysql">MySQL</option>
-          </select>
-          <Input name="host" placeholder="Database Host" onChange={handleChange} required />
-          <Input name="port" type="number" placeholder="Port" onChange={handleChange} required />
-          <Input name="database" placeholder="Database Name" onChange={handleChange} required />
-          <Input name="db_user" placeholder="DB Username" onChange={handleChange} required />
-          <Input name="db_password" type="password" placeholder="DB Password" onChange={handleChange} required />
-
-          <select name="check_frequency" onChange={handleChange} className="w-full border rounded p-2">
-            <option value="minute">Every Minute</option>
-            <option value="hour">Every Hour</option>
-            <option value="day">Every Day</option>
-          </select>
-
-          {error && <p className="text-red-600">{JSON.stringify(error)}</p>}
-
-          <div className="flex justify-between">
-            <Button type="button" onClick={() => setStep(1)} variant="outline">Back</Button>
-            <Button type="submit">Register</Button>
-          </div>
+          <Input
+            name="username"
+            placeholder="Username"
+            value={formData.username}
+            onChange={handleChange}
+            required
+            className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
+          />
+          <Input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
+          />
+          <Input
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
+          />
+          <Input
+            name="confirmPassword"
+            type="password"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+            className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
+          />
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+              disabled={loading}
+            >
+              {loading ? "Registering..." : "Sign Up"}
+            </Button>
+          </motion.div>
+          <p className="text-sm text-center text-gray-600 mt-4">
+            Already have an account?{" "}
+            <a href="/login" className="text-blue-600 hover:underline">
+              Login
+            </a>
+          </p>
         </form>
-      )}
+      </motion.div>
     </div>
   );
 }
-
-export default Signup;

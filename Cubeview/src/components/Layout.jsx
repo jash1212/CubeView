@@ -71,10 +71,10 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen bg-gradient-to-br from-white to-blue-50">
       {/* Sidebar */}
       <TooltipProvider>
-        <aside className="h-full w-16 bg-blue-50 border-r border-blue-200 flex flex-col items-center py-4 space-y-4 shadow-sm">
+        <aside className="h-full w-20 bg-white/70 backdrop-blur border-r border-blue-200 flex flex-col items-center py-6 space-y-4 shadow-lg">
           {navItems.map((item, idx) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
@@ -84,15 +84,17 @@ export default function Layout() {
                     onClick={() => navigate(item.path)}
                     aria-label={item.label}
                     className={cn(
-                      "w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blue-100 transition",
-                      isActive && "bg-blue-200 text-blue-800"
+                      "w-12 h-12 flex items-center justify-center rounded-xl hover:scale-105 hover:shadow-md transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-tr from-blue-500 to-indigo-500 text-white shadow-xl"
+                        : "text-gray-600 hover:bg-blue-100"
                     )}
                   >
                     {item.icon}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <span>{item.label}</span>
+                  <span className="text-sm">{item.label}</span>
                 </TooltipContent>
               </Tooltip>
             );
@@ -103,18 +105,23 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex flex-col flex-1">
         {/* Navbar */}
-        <header className="flex items-center justify-between px-6 py-4 border-b shadow-sm bg-white">
-          <span className="text-sm text-gray-600">
-            Welcome, <span className="font-medium">{username}</span>
+        <header className="flex items-center justify-between px-6 py-4 border-b bg-white/80 backdrop-blur shadow-sm">
+          <span className="text-sm text-gray-700">
+            Welcome, <span className="font-semibold text-indigo-600">{username}</span>
           </span>
-          <Button size="sm" variant="outline" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="flex items-center gap-2 hover:bg-red-100 text-red-600"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4" />
             Logout
           </Button>
         </header>
 
         {/* Outlet page content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-white via-blue-50 to-white transition-all duration-300">
           <Outlet />
         </main>
       </div>
