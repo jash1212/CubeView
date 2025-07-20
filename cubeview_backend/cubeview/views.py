@@ -9,6 +9,10 @@ from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
+from .ml.utils import detect_anomalies  # ✅ Import from updated utils
+from .utils.constants import HEALTH_SCORE_WEIGHTS
+
+
 
 # REST Framework
 from rest_framework import generics, status
@@ -321,13 +325,34 @@ def health_score(request):
     if not conn:
         return Response({"error": "No active DB connection."}, status=404)
 
-    checks = DataQualityCheck.objects.filter(table__connection=conn)
-    if not checks.exists():
+    all_checks = DataQualityCheck.objects.filter(table__user=user, table__connection=conn)
+
+    if not all_checks.exists():
         return Response({"score": 100, "status": "No checks run yet."})
 
-    passed = checks.filter(passed_percentage__gte=95).count()
-    total = checks.count()
-    score = int((passed / total) * 100)
+    score = 0
+
+    for check_type, weight in HEALTH_SCORE_WEIGHTS.items():
+        type_checks = all_checks.filter(check_type=check_type)
+        if not type_checks.exists():
+            continue
+
+        passed = type_checks.filter(passed_percentage__gte=95).count()
+        total = type_checks.count()
+        type_score = (passed / total) * 100
+        score += (type_score * weight)
+
+    score = round(score)
+
+    # Optional penalty: reduce score if unresolved incidents exist
+    ongoing_incidents = Incident.objects.filter(
+        related_table__user=user,
+        related_table__connection=conn,
+        status="ongoing"
+    ).count()
+
+    if ongoing_incidents:
+        score = max(score - 5, 0)  # mild penalty for unresolved issues
 
     if score >= 90:
         message = "Your data health is excellent."
@@ -354,7 +379,8 @@ def incident_summary(request):
     counts = {cat: 0 for cat in categories}
 
     for i in incidents:
-        itype = (i.incident_type or "custom").lower()
+        itype = (i.incident_type or "custom").strip().lower().replace(" ", "_")
+
         if itype in counts:
             counts[itype] += 1
         else:
@@ -729,19 +755,23 @@ def health_score_trend(request):
     user = request.user
     days = int(request.GET.get("days", 7))
     start_date = now().date() - timedelta(days=days)
+
     db_conn = get_active_connection(user)
     if not db_conn:
         return Response({"error": "No active DB connection."}, status=404)
 
-    tables = (
-        DataTable.objects.filter(
-            last_updated__date__gte=start_date, 
-            user=user, 
-            connection=db_conn
+    # Get all tables for this user and connection
+    tables = DataTable.objects.filter(user=user, connection=db_conn)
+    
+    # Filter health scores from checks on these tables
+    checks = (
+        DataQualityCheck.objects.filter(
+            table__in=tables,
+            run_time__date__gte=start_date
         )
-        .annotate(day=TruncDate("last_updated"))
-        .annotate(avg_score=Avg("data_quality_checks__passed_percentage"))
-        .values("day", "avg_score")
+        .annotate(day=TruncDate("run_time"))
+        .values("day")
+        .annotate(avg_score=Avg("passed_percentage"))
         .order_by("day")
     )
 
@@ -750,12 +780,14 @@ def health_score_trend(request):
             "date": entry["day"].isoformat(),
             "avg_health_score": round(entry["avg_score"], 2) if entry["avg_score"] else 0.0,
         }
-        for entry in tables
+        for entry in checks
     ]
+
     return Response(response_data)
 
 
 # ------------------ ML BULK ANOMALY CHECK ------------------
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -766,10 +798,12 @@ def run_bulk_anomaly_check(request):
     anomalies = 0
 
     for table in tables:
+        # Extract feature values
         null_percent = getattr(table, 'null_percent', 0)
         volume = getattr(table, 'row_count', 0)
         schema_change = 1 if getattr(table, 'schema_changed_recently', False) else 0
 
+        # Save metrics to MetricHistory
         for metric_type, value in [
             ("null_percent", null_percent),
             ("volume", volume),
@@ -782,8 +816,14 @@ def run_bulk_anomaly_check(request):
                 value=value,
             )
 
-        is_anomaly = detect_anomalies(null_percent, volume, schema_change)
+        try:
+            is_anomaly = detect_anomalies(null_percent, volume, schema_change)
+        except Exception as e:
+            return Response({
+                "error": f"⚠️ ML model failed to load or predict: {str(e)}"
+            }, status=500)
 
+        # Save anomaly result
         MetricHistory.objects.create(
             table=table,
             column=None,
@@ -791,29 +831,33 @@ def run_bulk_anomaly_check(request):
             value=float(is_anomaly),
         )
 
+        # If anomaly, create Incident
         if is_anomaly:
             anomalies += 1
-        
+
             # Determine root cause
             if schema_change:
                 incident_type = "schema_drift"
-            elif volume < 100:  # Or your defined threshold
+            elif volume < 100:
                 incident_type = "volume"
-            elif null_percent > 20:  # Example threshold
+            elif null_percent > 20:
                 incident_type = "freshness"
             else:
-                incident_type = "field_health"  # Default fallback
-        
+                incident_type = "field_health"
+
             Incident.objects.create(
                 related_table=table,
                 incident_type=incident_type,
                 severity="high",
                 status="ongoing",
                 title=f"ML Anomaly Detected in {table.name}",
-                description=f"Anomaly type: {incident_type.replace('_', ' ').title()} in '{table.name}'",
+                description=(
+                    f"Anomaly detected in table '{table.name}'\n"
+                    f"Root cause: {incident_type.replace('_', ' ').title()}"
+                ),
             )
 
-
+        # Collect result
         results.append({
             "table_name": table.name,
             "anomaly": is_anomaly,

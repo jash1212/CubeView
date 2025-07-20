@@ -78,6 +78,15 @@ class DataQualityCheck(models.Model):
     table = models.ForeignKey(DataTable, on_delete=models.CASCADE, related_name="data_quality_checks")
     run_time = models.DateTimeField(auto_now_add=True)
     passed_percentage = models.FloatField()  # e.g., 96.5%
+    CHECK_TYPE_CHOICES = [
+        ("volume", "Volume"),
+        ("freshness", "Freshness"),
+        ("field_health", "Field Health"),
+        ("schema_drift", "Schema Drift"),
+        ("job_failure", "Job Failure"),
+        ("custom", "Custom"),
+    ]
+    check_type = models.CharField(max_length=50, choices=CHECK_TYPE_CHOICES, default="custom")
 
     def __str__(self):
         return f"{self.table.name} - {self.run_time}"

@@ -1,13 +1,22 @@
+# cv_ml/utils/ml_model.py
+
 import os
 import joblib
 import pandas as pd
 
-# Load model once (assumes model is saved in 'cv_ml/models/')
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'isolation_forest_cv.pkl')
-model = joblib.load(MODEL_PATH)
+_model = None  # Singleton pattern
+
+def load_model():
+    global _model
+    if _model is None:
+        model_path = os.path.join(os.path.dirname(__file__), 'models', 'isolation_forest_cv.pkl')
+        if not os.path.exists(model_path):
+            raise FileNotFoundError("Isolation Forest model not found at expected path.")
+        _model = joblib.load(model_path)
+    return _model
 
 def detect_anomalies(null_percent, volume, schema_change):
-    """Returns True if anomaly is detected, else False"""
+    model = load_model()
     X = pd.DataFrame([{
         "null_percent": null_percent,
         "volume": volume,

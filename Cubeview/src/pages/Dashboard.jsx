@@ -42,6 +42,8 @@ export default function Dashboard() {
   const [incidentSummary, setIncidentSummary] = useState([]);
   const [recentIncidents, setRecentIncidents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMLDetails, setShowMLDetails] = useState(false);
+
 
   useEffect(() => {
     fetchAllData();
@@ -137,6 +139,23 @@ export default function Dashboard() {
     return "text-red-600";
   };
 
+  const handleRunAllChecks = async () => {
+  setRefreshing(true);
+  setLoadingML(true);
+  try {
+    await api.post("/api/run-quality-checks/");
+    const response = await api.post("/api/anomaly-check-all/");
+    const sorted = [...response.data.results].sort((a, b) => b.anomaly - a.anomaly);
+    setMlResults(sorted);
+    await fetchAllData();
+  } catch (err) {
+    console.error("Running all checks failed", err);
+  } finally {
+    setRefreshing(false);
+    setLoadingML(false);
+  }
+};
+
   return (
     <motion.div
       className="p-6 space-y-10 bg-white min-h-screen"
@@ -147,15 +166,35 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-800">🚀 Dashboard Overview</h1>
         <div className="flex gap-4">
+          {mlResults?.length > 0 && (
+  <div className="mt-4 mb-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm flex items-center justify-between shadow-sm">
+    <div className="flex items-center space-x-2 text-red-700">
+      <span className="text-lg">📊</span>
+      <span>
+        <b>{mlResults.filter(r => r.anomaly).length}</b> anomalies detected by ML in{" "}
+        <b>{mlResults.length}</b> tables.
+      </span>
+    </div>
+    <button
+      onClick={() => setShowMLDetails(prev => !prev)}
+      className="text-sm text-red-600 underline hover:text-red-800"
+    >
+      {showMLDetails ? "Hide details" : "View details"}
+    </button>
+  </div>
+)}
+
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={runChecks} disabled={refreshing} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
-              {refreshing ? "Running..." : "Run Checks"}
-            </Button>
-          </motion.div>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={runMLCheckAllTables} disabled={loadingML} className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg">
-              {loadingML ? "Checking..." : "Run ML Anomaly Check"}
-            </Button>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={handleRunAllChecks}
+                disabled={refreshing || loadingML}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
+              >
+                {(refreshing || loadingML) ? "Running All Checks..." : "Run All Checks"}
+              </Button>
+            </motion.div>
+
           </motion.div>
         </div>
       </div>
@@ -181,6 +220,28 @@ export default function Dashboard() {
           </motion.div>
         ))}
       </div>
+
+      {showMLDetails && (
+  <motion.div
+    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.6 }}
+  >
+    {mlResults.filter(r => r.anomaly).map((res, idx) => (
+      <Card key={idx} className="p-4 border-l-4 border-red-400 bg-white shadow">
+        <h3 className="text-sm font-semibold text-red-700 mb-1 truncate">{res.table_name}</h3>
+        <div className="text-xs text-gray-700 space-y-1">
+          <div>Null %: {res.null_percent}</div>
+          <div>Volume: {res.volume}</div>
+          <div>Schema Drift: {res.schema_change ? "Yes" : "No"}</div>
+          <div>Confidence: {res.confidence ?? "?"}%</div>
+        </div>
+      </Card>
+    ))}
+  </motion.div>
+)}
+
 
       {/* Incident Pie + Health + Table */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -299,13 +360,12 @@ export default function Dashboard() {
                             <td className="px-3 py-2 font-medium">{incident.table}</td>
                             <td className="px-3 py-2 capitalize">{LABELS[incident.type] || incident.type}</td>
                             <td className="px-3 py-2 whitespace-nowrap">{new Date(incident.time).toLocaleString()}</td>
-                            <td className={`px-3 py-2 capitalize font-semibold ${
-                              incident.status === "resolved"
-                                ? "text-green-600"
-                                : incident.status === "failed"
+                            <td className={`px-3 py-2 capitalize font-semibold ${incident.status === "resolved"
+                              ? "text-green-600"
+                              : incident.status === "failed"
                                 ? "text-red-600"
                                 : "text-yellow-600"
-                            }`}>
+                              }`}>
                               {incident.status ?? "ongoing"}
                             </td>
                           </tr>
@@ -320,45 +380,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ML Results */}
-      {mlResults.length > 0 && (
-        <motion.div
-          className="mt-10 space-y-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          <h2 className="text-lg font-bold text-red-600">🔍 ML Anomaly Detection Results</h2>
-          <p className="text-sm text-muted-foreground">
-            {mlResults.filter((r) => r.anomaly).length} anomalies out of {mlResults.length} tables.
-          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mlResults.map((res, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: idx * 0.05 }}
-              >
-                <Card
-                  className={`p-4 border-l-4 ${res.anomaly ? "border-red-500 bg-red-50" : "border-green-500 bg-green-50"}`}
-                >
-                  <div className="space-y-1">
-                    <h3 className="text-md font-semibold">{res.table_name}</h3>
-                    <p className="text-sm">Null %: {res.null_percent}</p>
-                    <p className="text-sm">Volume: {res.volume}</p>
-                    <p className="text-sm">Schema Drift: {res.schema_change ? "Yes" : "No"}</p>
-                    <p className={`font-bold ${res.anomaly ? "text-red-600" : "text-green-700"}`}>
-                      {res.anomaly ? "⚠️ Anomaly Detected" : "✅ Healthy"}
-                    </p>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
 
       {/* Dashboard Trends */}
       <motion.div
