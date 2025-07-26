@@ -428,9 +428,12 @@ def health_score(request):
 def incident_summary(request):
     user = request.user
     conn = get_active_connection(user)
+    
     incidents = Incident.objects.filter(
-        related_table__user=user, related_table__connection=conn
-    )
+    related_table__user=user,
+    related_table__connection=conn, 
+    ).exclude(status="resolved")
+
 
     categories = [
         "volume",
@@ -487,7 +490,7 @@ def list_incidents(request):
     table_filter = request.GET.get("table")
     type_filter = request.GET.get("type")
 
-    incidents = Incident.objects.filter(related_table__user=user)
+    incidents = Incident.objects.filter(related_table__user=user).select_related("related_table")
 
     if status_filter:
         incidents = incidents.filter(status=status_filter)
@@ -496,7 +499,7 @@ def list_incidents(request):
     if type_filter:
         incidents = incidents.filter(incident_type=type_filter)
 
-    incidents = incidents.select_related("related_table").order_by("-created_at")
+    incidents = incidents.order_by("-created_at")
 
     paginator = PageNumberPagination()
     paginator.page_size = 10
@@ -518,6 +521,7 @@ def list_incidents(request):
     ]
 
     return paginator.get_paginated_response(data)
+
 
 
 @api_view(["PATCH"])

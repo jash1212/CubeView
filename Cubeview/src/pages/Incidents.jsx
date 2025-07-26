@@ -164,8 +164,8 @@ const Incidents = () => {
       )}
 
       {loading ? (
-  <FancyLoader message="Fetching incidents..." />
-) : incidents.length === 0 ? (
+        <FancyLoader message="Fetching incidents..." />
+      ) : incidents.length === 0 ? (
 
         <div className="text-center text-sm text-gray-500 mt-8">
           No incidents found.
@@ -197,11 +197,10 @@ const Incidents = () => {
                         <p className="text-sm text-gray-600">{incident.description}</p>
                       </div>
                       <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          incident.status === "resolved"
+                        className={`text-xs px-2 py-1 rounded font-medium ${incident.status === "resolved"
                             ? "bg-green-100 text-green-700"
                             : "bg-yellow-100 text-yellow-700"
-                        }`}
+                          }`}
                       >
                         {incident.status.toUpperCase()}
                       </span>
@@ -210,7 +209,7 @@ const Incidents = () => {
                     <div className="text-sm text-gray-500 space-y-1">
                       <p>
                         Table:{" "}
-                        <span className="font-medium">{incident.table_name || "N/A"}</span>
+                        <span className="font-medium">{incident.table || "N/A"}</span>
                       </p>
                       <p>Created: {new Date(incident.created_at).toLocaleString()}</p>
                       {incident.resolved_at && (
@@ -226,7 +225,7 @@ const Incidents = () => {
                       )}
                       {incident.severity && (
                         <p>
-                           Severity:{" "}
+                          Severity:{" "}
                           <span
                             className={cn(
                               "font-semibold capitalize",

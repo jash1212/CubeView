@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db import transaction
 
 from .custom_rule_executor import execute_custom_rules
-from ..models import UserDatabaseConnection, DataTable, ColumnMetadata, Incident, MetricHistory, DataQualityCheck  # ⬅️ Added DataQualityCheck
+from ..models import UserDatabaseConnection, DataTable, ColumnMetadata, Incident, MetricHistory, DataQualityCheck
 from psycopg2 import sql
 from datetime import timedelta
 
@@ -37,12 +37,11 @@ def run_data_quality_checks(user):
 
         column_names = [col for col, _ in columns]
 
-        ### ✅ 1. Volume Check with Historical Trend
-        cursor.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table_name)))
+        # Volume Check
+        cursor.execute(sql.SQL("SELECT COUNT(*) FROM {}".format(sql.Identifier(table_name).as_string(conn))))
         row_count = cursor.fetchone()[0]
         total_checks += 1
 
-        # Save volume to MetricHistory
         MetricHistory.objects.create(
             table=related_table,
             metric_type="volume",
@@ -50,7 +49,6 @@ def run_data_quality_checks(user):
             timestamp=timezone.now()
         )
 
-        # Compare with 7-day average
         last_7_days = MetricHistory.objects.filter(
             table=related_table,
             metric_type="volume",
@@ -64,60 +62,75 @@ def run_data_quality_checks(user):
             drop_ratio = (avg_volume - row_count) / avg_volume
 
             if drop_ratio > 0.5:
-                failed_checks += 1
                 passed_volume = False
+        elif row_count == 0:
+            passed_volume = False
+
+        now = timezone.now()
+
+        if passed_volume:
+            Incident.objects.filter(
+                related_table=related_table,
+                incident_type="volume",
+                status="ongoing"
+            ).update(status="resolved", resolved_at=now)
+        else:
+            if not Incident.objects.filter(
+                related_table=related_table,
+                incident_type="volume",
+                status="ongoing"
+            ).exists():
                 Incident.objects.create(
-                    title=f"Significant volume drop in {table_name}",
-                    description=f"Expected ~{int(avg_volume)} rows, found {row_count} ({drop_ratio*100:.1f}% drop).",
+                    title=f"Volume issue in {table_name}",
+                    description=f"Row count is {row_count}.",
                     related_table=related_table,
                     status="ongoing",
                     severity="high",
                     incident_type="volume"
                 )
                 incidents_created += 1
-        elif row_count == 0:
-            failed_checks += 1
-            passed_volume = False
-            Incident.objects.create(
-                title=f"No data in table {table_name}",
-                description="This table contains 0 rows.",
-                related_table=related_table,
-                status="ongoing",
-                severity="high",
-                incident_type="volume"
-            )
-            incidents_created += 1
 
-        # ✅ Save DataQualityCheck for volume
         DataQualityCheck.objects.create(
             table=related_table,
-            run_time=timezone.now(),
+            run_time=now,
             passed_percentage=100 if passed_volume else 0,
             check_type="volume"
         )
 
-        ### ✅ 2. Field Health Checks
         for col, dtype in columns:
             total_checks += 1
 
-            # Null Check
             cursor.execute(sql.SQL("SELECT COUNT(*) FROM {} WHERE {} IS NULL").format(
                 sql.Identifier(table_name),
                 sql.Identifier(col)
             ))
             null_count = cursor.fetchone()[0]
 
-            null_ratio = 0
-            passed_null = True
+            null_ratio = null_count / row_count if row_count > 0 else 0
+            passed_null = null_ratio <= 0.5
 
-            if row_count > 0:
-                null_ratio = null_count / row_count
-                if null_ratio > 0.5:
-                    failed_checks += 1
-                    passed_null = False
+            cursor.execute(sql.SQL("SELECT COUNT(DISTINCT {}) FROM {}").format(
+                sql.Identifier(col),
+                sql.Identifier(table_name)
+            ))
+            distinct_count = cursor.fetchone()[0]
+            passed_constant = distinct_count > 1
+
+            if passed_null and passed_constant:
+                Incident.objects.filter(
+                    related_table=related_table,
+                    incident_type="field_health",
+                    status="ongoing"
+                ).update(status="resolved", resolved_at=now)
+            else:
+                if not Incident.objects.filter(
+                    related_table=related_table,
+                    incident_type="field_health",
+                    status="ongoing"
+                ).exists():
                     Incident.objects.create(
-                        title=f"High null ratio in {col} of {table_name}",
-                        description=f"{null_ratio*100:.2f}% values are NULL.",
+                        title=f"Field health issue in {col} of {table_name}",
+                        description="High nulls or constant values detected.",
                         related_table=related_table,
                         status="ongoing",
                         severity="medium",
@@ -125,47 +138,19 @@ def run_data_quality_checks(user):
                     )
                     incidents_created += 1
 
-            # Constant Value Check
-            cursor.execute(sql.SQL("SELECT COUNT(DISTINCT {}) FROM {}").format(
-                sql.Identifier(col),
-                sql.Identifier(table_name)
-            ))
-            distinct_count = cursor.fetchone()[0]
-
-            passed_constant = True
-            if distinct_count == 1:
-                failed_checks += 1
-                passed_constant = False
-                Incident.objects.create(
-                    title=f"Field {col} has constant value in {table_name}",
-                    description=f"All rows have same value in {col}.",
-                    related_table=related_table,
-                    status="ongoing",
-                    severity="low",
-                    incident_type="field_health"
-                )
-                incidents_created += 1
-
-            # ✅ Save DataQualityCheck for field health (average of null and constant score)
-            passed_score = 100
-            if not passed_null and not passed_constant:
-                passed_score = 0
-            elif not passed_null or not passed_constant:
-                passed_score = 50
+            score = 100 if passed_null and passed_constant else 50 if passed_null or passed_constant else 0
 
             DataQualityCheck.objects.create(
                 table=related_table,
-                run_time=timezone.now(),
-                passed_percentage=passed_score,
+                run_time=now,
+                passed_percentage=score,
                 check_type="field_health"
             )
 
-
-        ### ✅ 3. Freshness Check (detect timestamp column dynamically)
+        # Freshness
         timestamp_columns = [col for col in column_names if col in ['updated_at', 'created_at', 'event_time', 'timestamp']]
 
         if timestamp_columns:
-            freshness_checked = False
             for ts_col in timestamp_columns:
                 try:
                     cursor.execute(sql.SQL("SELECT MAX({}) FROM {}").format(
@@ -176,103 +161,80 @@ def run_data_quality_checks(user):
                     if last_update:
                         time_diff = datetime.datetime.now() - last_update
                         hours_old = time_diff.total_seconds() / 3600
-                        freshness_score = max(0, 100 - min(hours_old, 48))  # Decay logic
+                        freshness_score = max(0, 100 - min(hours_old, 48))
 
                         DataQualityCheck.objects.create(
                             table=related_table,
-                            run_time=timezone.now(),
+                            run_time=now,
                             passed_percentage=freshness_score,
                             check_type="freshness",
                         )
 
                         if hours_old > 24:
-                            total_checks += 1
-                            failed_checks += 1
-                            Incident.objects.create(
-                                title=f"Stale data in {table_name}",
-                                description=f"Last update was {hours_old:.1f} hours ago via `{ts_col}`.",
+                            if not Incident.objects.filter(
                                 related_table=related_table,
-                                status="ongoing",
-                                severity="medium",
-                                incident_type="freshness"
-                            )
-                            incidents_created += 1
+                                incident_type="freshness",
+                                status="ongoing"
+                            ).exists():
+                                Incident.objects.create(
+                                    title=f"Stale data in {table_name}",
+                                    description=f"Last update was {hours_old:.1f} hours ago via `{ts_col}`.",
+                                    related_table=related_table,
+                                    status="ongoing",
+                                    severity="medium",
+                                    incident_type="freshness"
+                                )
+                                incidents_created += 1
                         else:
-                            total_checks += 1
-                        freshness_checked = True
+                            Incident.objects.filter(
+                                related_table=related_table,
+                                incident_type="freshness",
+                                status="ongoing"
+                            ).update(status="resolved", resolved_at=now)
                         break
                 except Exception:
                     continue
 
-            if not freshness_checked:
-                total_checks += 1
-                DataQualityCheck.objects.create(
-                    table=related_table,
-                    run_time=timezone.now(),
-                    passed_percentage=0,
-                    check_type="freshness",
-                )
-                Incident.objects.create(
-                    title=f"Freshness check skipped for {table_name}",
-                    description="No valid timestamp column available.",
-                    related_table=related_table,
-                    status="ongoing",
-                    severity="low",
-                    incident_type="freshness"
-                )
-                incidents_created += 1
-
-        ### ✅ 4. Schema Drift Check (Improved)
+        # Schema Drift
         prev_columns = ColumnMetadata.objects.filter(table=related_table)
         prev_schema = {col.name: col.data_type for col in prev_columns}
         curr_schema = {col: dtype for col, dtype in columns}
 
-        if prev_schema:
-            added_cols = set(curr_schema.keys()) - set(prev_schema.keys())
-            removed_cols = set(prev_schema.keys()) - set(curr_schema.keys())
-            changed_types = {
-                col: (prev_schema[col], curr_schema[col])
-                for col in curr_schema
-                if col in prev_schema and curr_schema[col] != prev_schema[col]
-            }
+        added_cols = set(curr_schema.keys()) - set(prev_schema.keys())
+        removed_cols = set(prev_schema.keys()) - set(curr_schema.keys())
+        changed_types = {
+            col: (prev_schema[col], curr_schema[col])
+            for col in curr_schema
+            if col in prev_schema and curr_schema[col] != prev_schema[col]
+        }
 
-            drift_detected = bool(added_cols or removed_cols or changed_types)
+        drift_detected = bool(added_cols or removed_cols or changed_types)
 
-            if drift_detected:
-                failed_checks += 1
-                total_checks += 1
-                score = 0
-            else:
-                total_checks += 1
-                score = 100
-
-            DataQualityCheck.objects.create(
-                table=related_table,
-                run_time=timezone.now(),
-                passed_percentage=score,
-                check_type="schema_drift",
+        if drift_detected:
+            Incident.objects.create(
+                title=f"Schema drift in {table_name}",
+                description=f"Added: {added_cols}, Removed: {removed_cols}, Changed: {changed_types}",
+                related_table=related_table,
+                status="ongoing",
+                severity="high",
+                incident_type="schema_drift"
             )
+            score = 0
+        else:
+            Incident.objects.filter(
+                related_table=related_table,
+                incident_type="schema_drift",
+                status="ongoing"
+            ).update(status="resolved", resolved_at=now)
+            score = 100
 
-            if drift_detected:
-                drift_msgs = []
-                if added_cols:
-                    drift_msgs.append(f"➕ Columns added: {', '.join(added_cols)}")
-                if removed_cols:
-                    drift_msgs.append(f"➖ Columns removed: {', '.join(removed_cols)}")
-                if changed_types:
-                    for col, (old, new) in changed_types.items():
-                        drift_msgs.append(f"🔄 `{col}` changed: {old} → {new}")
+        DataQualityCheck.objects.create(
+            table=related_table,
+            run_time=now,
+            passed_percentage=score,
+            check_type="schema_drift"
+        )
 
-                Incident.objects.create(
-                    title=f"Schema drift detected in {table_name}",
-                    description="\n".join(drift_msgs),
-                    related_table=related_table,
-                    status="ongoing",
-                    severity="high",
-                    incident_type="schema_drift"
-                )
-
-        # Save current schema for next drift check
         ColumnMetadata.objects.filter(table=related_table).delete()
         ColumnMetadata.objects.bulk_create([
             ColumnMetadata(table=related_table, name=col, data_type=dtype)

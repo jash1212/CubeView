@@ -100,7 +100,10 @@ class ExportedMetadataSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class IncidentSerializer(serializers.ModelSerializer):
-    table_name = serializers.CharField(source="related_table.name", read_only=True)
+    table_name = serializers.SerializerMethodField()
+
+    def get_table_name(self, obj):
+        return obj.related_table.name if obj.related_table else None
 
     class Meta:
         model = Incident
@@ -108,10 +111,6 @@ class IncidentSerializer(serializers.ModelSerializer):
             "id", "title", "description", "incident_type",
             "status", "created_at", "resolved_at", "table_name"
         ]
-class IncidentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Incident
-        fields = "__all__"  # or add 'severity' manually
 
 
 
