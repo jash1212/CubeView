@@ -90,14 +90,14 @@ const Incidents = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 text-transparent bg-clip-text">
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 text-transparent bg-clip-text">
         🧠 Incident Management
       </h1>
 
-      <div className="flex gap-6 text-sm text-gray-700">
-        <span>🧾 Total: <strong>{summary.total}</strong></span>
-        <span>✅ Resolved: <strong>{summary.resolved}</strong></span>
-        <span>⚠️ Ongoing: <strong>{summary.ongoing}</strong></span>
+      <div className="flex gap-6 text-xm text-gray-800">
+        <span>Total: <strong>{summary.total}</strong></span>
+        <span>Resolved: <strong>{summary.resolved}</strong></span>
+        <span>Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 
       {/* Filters */}
@@ -168,7 +168,7 @@ const Incidents = () => {
 ) : incidents.length === 0 ? (
 
         <div className="text-center text-sm text-gray-500 mt-8">
-          No incidents found. 🎉
+          No incidents found.
         </div>
       ) : (
         <motion.div
@@ -191,7 +191,7 @@ const Incidents = () => {
                         className="cursor-pointer"
                         onClick={() => navigate(`/incidents/${incident.id}`)}
                       >
-                        <h2 className="text-lg font-bold text-blue-600 hover:underline">
+                        <h2 className="text-lg font-bold text-blue-500 hover:underline">
                           {incident.title}
                         </h2>
                         <p className="text-sm text-gray-600">{incident.description}</p>
@@ -209,24 +209,24 @@ const Incidents = () => {
 
                     <div className="text-sm text-gray-500 space-y-1">
                       <p>
-                        📌 Table:{" "}
+                        Table:{" "}
                         <span className="font-medium">{incident.table_name || "N/A"}</span>
                       </p>
-                      <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
+                      <p>Created: {new Date(incident.created_at).toLocaleString()}</p>
                       {incident.resolved_at && (
                         <p>
-                          ✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}
+                          Resolved: {new Date(incident.resolved_at).toLocaleString()}
                         </p>
                       )}
                       {incident.type && (
                         <p>
-                          🔍 Type:{" "}
+                          Type:{" "}
                           <span className="text-indigo-600 font-medium">{incident.type}</span>
                         </p>
                       )}
                       {incident.severity && (
                         <p>
-                          🔥 Severity:{" "}
+                           Severity:{" "}
                           <span
                             className={cn(
                               "font-semibold capitalize",

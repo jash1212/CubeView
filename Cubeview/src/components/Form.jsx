@@ -98,7 +98,7 @@ function Form({ route, method }) {
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-500 text-white hover:from-blue-6 00 hover:to-blue-600"
                 >
                   {name}
                 </Button>
@@ -106,7 +106,7 @@ function Form({ route, method }) {
               {method === "login" && (
                 <p className="text-sm text-center mt-4 text-gray-600">
                   New here?{" "}
-                  <a href="/signup" className="text-blue-600 hover:underline">
+                  <a href="/signup" className="text-blue-500 hover:underline">
                     Create an account
                   </a>
                 </p>

@@ -5,6 +5,9 @@ from .models import (
     DataQualityCheck, ExportedMetadata, UserDatabaseConnection
 )
 
+
+from .models import DataQualityRule, RuleExecutionHistory, DataTable
+
 User = get_user_model()
 
 # ------------------ USER ------------------
@@ -109,3 +112,23 @@ class IncidentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incident
         fields = "__all__"  # or add 'severity' manually
+
+
+
+class DataQualityRuleSerializer(serializers.ModelSerializer):
+    table_name = serializers.ReadOnlyField(source="table.name")
+
+    class Meta:
+        model = DataQualityRule
+        fields = [
+            "id", "user", "table", "table_name", "column",
+            "rule_type", "rule_logic", "natural_language",
+            "schedule", "severity", "created_at"
+        ]
+        read_only_fields = ["user", "created_at"]
+
+
+class RuleExecutionHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RuleExecutionHistory
+        fields = ["id", "rule", "timestamp", "status", "failed_rows"]

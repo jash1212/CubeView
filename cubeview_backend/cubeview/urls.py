@@ -1,6 +1,9 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
+    DataQualityRuleDetailView,
+    generate_rule_from_prompt,
+    DataQualityRuleListCreateView,
     calculate_metrics,
     dashboard_summary,
     connect_db,
@@ -30,10 +33,12 @@ from .views import (
 )
 
 urlpatterns = [
+    
     # ✅ Auth
     path("register/", RegisterView.as_view(), name="register"),
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("generate-rule/", generate_rule_from_prompt, name="generate_rule"),
     # ✅ Dashboard + Metadata
     path("dashboard-summary/", dashboard_summary, name="dashboard-summary"),
     path("dashboard-data/", dashboard_data, name="dashboard-data"),
@@ -63,6 +68,9 @@ urlpatterns = [
     path("metrics/<int:table_id>/", field_metrics, name="field-metrics"),    path("incident-trend/", incident_trend, name="incident-trend"),
     path("health-score-trend/", health_score_trend, name="health-score-trend"),
     path("anomaly-check-all/", run_bulk_anomaly_check),
+    path("rules/", DataQualityRuleListCreateView.as_view(), name="rule-list-create"),
+    path("rules/<int:pk>/", DataQualityRuleDetailView.as_view(), name="rule-detail"),
+    
 
 
 

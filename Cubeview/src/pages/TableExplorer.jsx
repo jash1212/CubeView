@@ -115,7 +115,7 @@ export default function TableExplorer() {
                     size="sm"
                     variant="outline"
                     disabled={docLoadingId === table.id}
-                    className="ml-2"
+                    className="ml-2 rounded-2xl"
                     onClick={() => handleGenerateDocs(table.id)}
                   >
                     {docLoadingId === table.id ? "..." : "Docs"}

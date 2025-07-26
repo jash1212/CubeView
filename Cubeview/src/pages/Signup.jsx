@@ -61,7 +61,7 @@ export default function SignupPage() {
         className="z-10 w-full max-w-md p-6 backdrop-blur-md bg-white/70 border border-gray-200 rounded-2xl shadow-xl"
       >
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          🧬 Create Your Account
+          Create Your Account
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -102,7 +102,7 @@ export default function SignupPage() {
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-500 text-white hover:from-blue-600 hover:to-blue-600"
               disabled={loading}
             >
               {loading ? "Registering..." : "Sign Up"}
@@ -110,7 +110,7 @@ export default function SignupPage() {
           </motion.div>
           <p className="text-sm text-center text-gray-600 mt-4">
             Already have an account?{" "}
-            <a href="/login" className="text-blue-600 hover:underline">
+            <a href="/login" className="text-blue-500 hover:underline">
               Login
             </a>
           </p>

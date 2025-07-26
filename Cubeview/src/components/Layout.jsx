@@ -30,6 +30,7 @@ const navItems = [
   { icon: <Home size={20} />, label: "Dashboard", path: "/dashboard" },
   { icon: <Table size={20} />, label: "Table Explorer", path: "/table-explorer" },
   { icon: <AlertTriangle size={20} />, label: "Incidents", path: "/incidents" },
+  { icon: <CheckCircle size={20} />, label: "Rule Engine", path: "/rules" },
   { icon: <CheckCircle size={20} />, label: "Quality Checks", path: "/quality-checks" },
   { icon: <Tags size={20} />, label: "Tags", path: "/tags" },
   { icon: <LineChart size={20} />, label: "Lineage", path: "/lineage" },
@@ -67,14 +68,14 @@ export default function Layout() {
   const handleLogout = () => {
     localStorage.removeItem(ACCESS_TOKEN);
     localStorage.removeItem(REFRESH_TOKEN);
-    navigate("/login");
+    navigate("/");
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-white to-blue-50">
+    <div className="flex h-screen bg-gradient-to-br from-blue-50 to-blue-50">
       {/* Sidebar */}
       <TooltipProvider>
-        <aside className="h-full w-20 bg-white/70 backdrop-blur border-r border-blue-200 flex flex-col items-center py-6 space-y-4 shadow-lg">
+        <aside className="h-full w-20 bg-white/70 backdrop-blur border-r border-gray-200 flex flex-col items-center py-6 space-y-4 shadow-lg">
           {navItems.map((item, idx) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
@@ -86,7 +87,7 @@ export default function Layout() {
                     className={cn(
                       "w-12 h-12 flex items-center justify-center rounded-xl hover:scale-105 hover:shadow-md transition-all duration-200",
                       isActive
-                        ? "bg-gradient-to-tr from-blue-500 to-indigo-500 text-white shadow-xl"
+                        ? "bg-gradient-to-tr from-blue-500 to-blue-500 text-white shadow-xl"
                         : "text-gray-600 hover:bg-blue-100"
                     )}
                   >
@@ -105,20 +106,27 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex flex-col flex-1">
         {/* Navbar */}
-        <header className="flex items-center justify-between px-6 py-4 border-b bg-white/80 backdrop-blur shadow-sm">
-          <span className="text-sm text-gray-700">
-            Welcome, <span className="font-semibold text-indigo-600">{username}</span>
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="flex items-center gap-2 hover:bg-red-100 text-red-600"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
+        <header className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur border-b border-blue-100 shadow-md">
+          {/* Left: App Title */}
+          <div className="text-lg font-semibold text-blue-500 tracking-tight ">
+            CubeView
+          </div>
+
+          {/* Right: User Info and Logout */}
+          <div className="flex items-center gap-4">
+
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex items-center gap-2 hover:bg-red-100 text-red-500"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
         </header>
+
 
         {/* Outlet page content */}
         <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-white via-blue-50 to-white transition-all duration-300">

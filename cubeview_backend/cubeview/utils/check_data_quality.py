@@ -2,6 +2,8 @@ import psycopg2
 import datetime
 from django.utils import timezone
 from django.db import transaction
+
+from .custom_rule_executor import execute_custom_rules
 from ..models import UserDatabaseConnection, DataTable, ColumnMetadata, Incident, MetricHistory, DataQualityCheck  # ⬅️ Added DataQualityCheck
 from psycopg2 import sql
 from datetime import timedelta
@@ -25,6 +27,7 @@ def run_data_quality_checks(user):
     total_checks = 0
     failed_checks = 0
     incidents_created = 0
+    execute_custom_rules(user)
 
     for table in tables:
         table_name = table.name

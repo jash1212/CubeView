@@ -44,7 +44,7 @@ export default function NeuralBackground() {
           const dist = dx * dx + dy * dy;
           if (dist < 14000) {
             ctx.beginPath();
-            ctx.strokeStyle = "rgba(0, 123, 255, 0.2)"; // Blue lines with light opacity
+            ctx.strokeStyle = "rgba(59, 130, 246, 0.2)"; // Blue lines with light opacity
             ctx.lineWidth = 1;
             ctx.moveTo(particles[a].x, particles[a].y);
             ctx.lineTo(particles[b].x, particles[b].y);

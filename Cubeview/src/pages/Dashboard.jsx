@@ -164,12 +164,12 @@ export default function Dashboard() {
       transition={{ duration: 0.6 }}
     >
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-800">🚀 Dashboard Overview</h1>
+        <h1 className="text-4xl font-bold tracking-tight text-gray-800">Dashboard Overview</h1>
         <div className="flex gap-4">
           {mlResults?.length > 0 && (
   <div className="mt-4 mb-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm flex items-center justify-between shadow-sm">
     <div className="flex items-center space-x-2 text-red-700">
-      <span className="text-lg">📊</span>
+      <span className="text-lg"></span>
       <span>
         <b>{mlResults.filter(r => r.anomaly).length}</b> anomalies detected by ML in{" "}
         <b>{mlResults.length}</b> tables.
@@ -189,7 +189,7 @@ export default function Dashboard() {
               <Button
                 onClick={handleRunAllChecks}
                 disabled={refreshing || loadingML}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
+                className="bg-blue-500 hover:bg-blue-400 text-white shadow-lg rounded-3xl"
               >
                 {(refreshing || loadingML) ? "Running All Checks..." : "Run All Checks"}
               </Button>
@@ -209,8 +209,8 @@ export default function Dashboard() {
           >
             <Card className="rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
               <CardContent className="p-6">
-                <div className="text-sm text-gray-500 capitalize mb-1">
-                  {key === "sources" ? "🧩 Data Sources" : key === "tables" ? "📊 Tables" : key === "fields" ? "📄 Fields" : "⚙️ Jobs"}
+                <div className="text-sm text-gray-600 font-semibold capitalize mb-1">
+                  {key === "sources" ? "Data Sources" : key === "tables" ? "Tables" : key === "fields" ? "Fields" : "Jobs"}
                 </div>
                 <div className="text-3xl font-semibold text-gray-800">
                   {summary?.data_overview?.[key] ?? <Skeleton className="h-6 w-10" />}
@@ -253,7 +253,7 @@ export default function Dashboard() {
           <Card className="shadow-md">
             <CardContent className="p-6 space-y-6">
               <div>
-                <h2 className="text-md font-semibold mb-4">📈 Incident Distribution</h2>
+                <h2 className="text-md font-semibold mb-4">Incident Distribution</h2>
                 {incidentSummary.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No incident data available.</p>
                 ) : (
@@ -279,7 +279,7 @@ export default function Dashboard() {
                         payload={incidentSummary.map((entry, index) => ({
                           id: entry.type,
                           value: LABELS[entry.type] || entry.type,
-                          type: "square",
+                          type: "circle",
                           color: PIE_COLORS[index % PIE_COLORS.length],
                         }))}
                       />
@@ -324,7 +324,7 @@ export default function Dashboard() {
           >
             <Card className="shadow-md">
               <CardContent className="p-6 space-y-2">
-                <h2 className="text-md font-semibold">❤️ Data Health Score</h2>
+                <h2 className="text-md font-semibold">Data Health Score</h2>
                 <div className={`text-4xl font-bold ${getScoreColor(healthScore?.score)}`}>
                   {healthScore?.score !== undefined ? `${healthScore.score}` : <Skeleton className="h-8 w-14" />}
                 </div>
@@ -340,7 +340,7 @@ export default function Dashboard() {
           >
             <Card className="shadow-md">
               <CardContent className="p-4">
-                <div className="text-sm font-semibold mb-3">🕒 Recent Incidents</div>
+                <div className="text-md font-semibold mb-3">Recent Incidents</div>
                 {recentIncidents.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No recent incidents.</p>
                 ) : (

@@ -14,6 +14,7 @@ import Incidents from "./pages/Incidents";
 import IncidentDetail from "@/pages/IncidentDetail";
 import TableDetail from "@/pages/TableDetail";
 import LandingPage from "@/pages/LandingPage"; // ✅ Added landing page route
+import RuleEngine from "./pages/RuleEngine";
 
 function App() {
   return (
@@ -39,6 +40,8 @@ function App() {
           <Route path="datasets" element={<Datasets />} />
           <Route path="incidents" element={<Incidents />} />
           <Route path="table-explorer" element={<TableExplorer />} />
+          <Route path="rules" element={<RuleEngine />} />
+
 
           <Route path="settings" element={<Settings />} />
           <Route path="dashboard" element={<Dashboard />} />

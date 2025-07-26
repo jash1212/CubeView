@@ -2,7 +2,7 @@ import requests
 import os
 
 GEMINI_API_KEY = os.getenv("API_KEY")
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-2.5-pro"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 
 def generate_table_documentation(table_name, column_names):

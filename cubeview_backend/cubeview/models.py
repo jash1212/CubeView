@@ -50,7 +50,6 @@ class Incident(models.Model):
         ("resolved", "Resolved"),
     ]
     type = models.CharField(max_length=100, blank=True, null=True)
-
     title = models.CharField(max_length=100)
     description = models.TextField()
     related_table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
@@ -158,3 +157,63 @@ class MetricHistory(models.Model):
 
     class Meta:
         ordering = ["-timestamp"]
+
+class DataQualityRule(models.Model):
+    RULE_TYPES = [
+        ("null_check", "Null Check"),
+        ("regex_check", "Regex Pattern Match"),
+        ("threshold", "Threshold Limit"),
+        ("custom_sql", "Custom SQL"),
+        ("freshness", "Freshness Check"),
+    ]
+
+    SCHEDULE_CHOICES = [
+        ("hourly", "Hourly"),
+        ("daily", "Daily"),
+    ]
+
+    SEVERITY_LEVELS = [
+        ("info", "Info"),
+        ("warning", "Warning"),
+        ("critical", "Critical"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
+    column = models.CharField(max_length=255, blank=True, null=True)
+    rule_type = models.CharField(max_length=50, choices=RULE_TYPES)
+    rule_logic = models.TextField()  # SQL or condition string
+    natural_language = models.TextField(blank=True, null=True)
+    schedule = models.CharField(max_length=20, choices=SCHEDULE_CHOICES)
+    severity = models.CharField(max_length=10, choices=SEVERITY_LEVELS)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_critical = models.BooleanField(default=False)
+
+
+    def __str__(self):
+        return f"{self.table.name}.{self.column or '*'} - {self.rule_type}"
+
+
+class RuleExecutionHistory(models.Model):
+    STATUS_CHOICES = [
+        ("pass", "Pass"),
+        ("fail", "Fail"),
+    ]
+
+    rule = models.ForeignKey(DataQualityRule, on_delete=models.CASCADE, related_name="history")
+    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    failed_rows = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.rule} @ {self.timestamp} = {self.status}"
+    
+class RuleEngine(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    table = models.ForeignKey(DataTable, on_delete=models.CASCADE)
+    rule_type = models.CharField(max_length=100)
+    column = models.CharField(max_length=255, blank=True, null=True)
+    rule_logic = models.TextField()
+    natural_language = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+

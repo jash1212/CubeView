@@ -108,14 +108,14 @@ const Settings = () => {
         transition={{ duration: 0.5 }}
         className="text-3xl font-bold text-gray-800"
       >
-        ⚙️ Database Settings
+        Database Settings
       </motion.h2>
 
       <Button
         onClick={() => setShowForm((prev) => !prev)}
-        className="rounded-xl px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:scale-105 transition-transform"
+        className="rounded-2xl px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-500 text-white shadow-md hover:scale-105 transition-transform"
       >
-        {showForm ? "Cancel" : "➕ Connect New Database"}
+        {showForm ? "Cancel" : " Connect New Database"}
       </Button>
 
       <AnimatePresence>
@@ -135,21 +135,12 @@ const Settings = () => {
             <Input name="username" value={formData.username} placeholder="Username" onChange={handleChange} required />
             <Input name="password" type="password" value={formData.password} placeholder="Password" onChange={handleChange} required />
 
-            <select
-              name="check_frequency"
-              value={formData.check_frequency}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded-lg text-sm"
-            >
-              <option value="minutely">Every Minute</option>
-              <option value="hourly">Every Hour</option>
-              <option value="daily">Every Day</option>
-            </select>
+            
 
             <div className="col-span-1 sm:col-span-2">
               <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-xl"
                 disabled={loading}
               >
                 {loading ? "Saving..." : editId ? "Update Connection" : "Save Connection"}
@@ -170,18 +161,18 @@ const Settings = () => {
             >
               <Card className="rounded-xl bg-white shadow-md hover:shadow-lg transition">
                 <CardContent className="p-4 space-y-1">
-                  <p className="text-sm text-gray-600">🔌 <strong>{conn.name}</strong></p>
+                  <p className="text-md text-gray-600"><strong>{conn.name}</strong></p>
                   <p className="text-sm text-gray-500">Host: {conn.host}</p>
                   <p className="text-sm text-gray-500">Database: {conn.database_name}</p>
                   <p className="text-sm text-gray-500">Type: {conn.db_type}</p>
-                  <p className="text-sm text-gray-500">Check Frequency: {conn.check_frequency}</p>
+                  
 
                   <div className="flex gap-2 mt-3">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(conn)}>
-                      ✏️ Edit
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(conn)} className="rounded-2xl px-5 py-2  text-black shadow-gray-200 shadow-md hover:scale-105 transition-transform">
+                      Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(conn.id)}>
-                      ❌ Delete
+                    <Button  size="sm" onClick={() => handleDelete(conn.id)} className="rounded-2xl px-5 py-2 bg-gradient-to-r from-red-500 to-red-500 text-white shadow-md hover:scale-105 transition-transform">
+                      Delete
                     </Button>
                   </div>
                 </CardContent>

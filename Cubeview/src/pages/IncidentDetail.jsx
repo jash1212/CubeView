@@ -64,8 +64,8 @@ const IncidentDetail = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-        🧠 Incident Details
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500  to-cyan-500 bg-clip-text text-transparent">
+       Incident Details
       </h1>
 
       <motion.div
@@ -97,18 +97,18 @@ const IncidentDetail = () => {
 
             <div className="text-sm text-gray-500 space-y-1">
               <p>
-                📌 Table:{" "}
+                Table:{" "}
                 <span className="font-medium text-gray-800">
                   {incident.table_name || "N/A"}
                 </span>
               </p>
-              <p>🕒 Created: {new Date(incident.created_at).toLocaleString()}</p>
+              <p>Created: {new Date(incident.created_at).toLocaleString()}</p>
               {incident.resolved_at && (
-                <p>✅ Resolved: {new Date(incident.resolved_at).toLocaleString()}</p>
+                <p>Resolved: {new Date(incident.resolved_at).toLocaleString()}</p>
               )}
               {incident.type && (
                 <p>
-                  🔍 Type:{" "}
+                  Type:{" "}
                   <span className="text-indigo-600 font-medium">
                     {incident.type}
                   </span>
@@ -116,7 +116,7 @@ const IncidentDetail = () => {
               )}
               {incident.severity && (
                 <p>
-                  🔥 Severity:{" "}
+                  Severity:{" "}
                   <span
                     className={cn(
                       "font-semibold capitalize",
@@ -133,7 +133,7 @@ const IncidentDetail = () => {
 
             {incident.status === "ongoing" && (
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button size="sm" onClick={resolveIncident}>
+                <Button size="sm" onClick={resolveIncident} className="bg-gradient-to-r from-blue-500  to-blue-500">
                   ✅ Mark as Resolved
                 </Button>
               </motion.div>
@@ -145,7 +145,7 @@ const IncidentDetail = () => {
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
         <Button
           variant="ghost"
-          className="text-blue-600 hover:underline"
+          className="text-blue-500 hover:underline"
           onClick={() => navigate(-1)}
         >
           ← Back to Incidents

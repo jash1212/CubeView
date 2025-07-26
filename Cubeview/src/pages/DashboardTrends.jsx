@@ -72,7 +72,7 @@ export default function DashboardTrends() {
       {/* Header + Time Filter */}
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-2xl font-bold text-gray-800">
-          📊 Trends Overview
+          Trends Overview
         </h2>
         <Select value={days} onValueChange={setDays}>
           <SelectTrigger className="w-[130px] border border-gray-300 text-sm">
@@ -92,7 +92,7 @@ export default function DashboardTrends() {
       <Card className="shadow-sm border border-gray-200">
         <CardContent className="p-5">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">
-            📉 Incident Trend
+            Incident Trend
           </h3>
           {incidentData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No incident data available.</p>
@@ -125,7 +125,7 @@ export default function DashboardTrends() {
       <Card className="shadow-sm border border-gray-200">
         <CardContent className="p-5">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">
-            📈 Health Score Trend
+            Health Score Trend
           </h3>
           {healthScoreData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No health score data available.</p>
