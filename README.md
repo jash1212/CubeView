@@ -25,7 +25,6 @@ CubeView is a **lightweight data platform** for **cataloging**, **lineage tracki
 
 ## ⚡ Quick Setup
 
-> 💡 **Tip:** GitHub automatically adds a 📋 copy button to each code block.
 
 ### 1️⃣ Clone Repository
 ```bash
