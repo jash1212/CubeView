@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
-    DataTable, ColumnMetadata, Tag, DataTableTag, Incident,
+    DataTable, ColumnMetadata, LineageEdge, LineageNode, Tag, DataTableTag, Incident,
     DataQualityCheck, ExportedMetadata, UserDatabaseConnection
 )
 
@@ -131,3 +131,16 @@ class RuleExecutionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RuleExecutionHistory
         fields = ["id", "rule", "timestamp", "status", "failed_rows"]
+        
+class LineageNodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LineageNode
+        fields = "__all__"
+
+class LineageEdgeSerializer(serializers.ModelSerializer):
+    from_node = LineageNodeSerializer()
+    to_node = LineageNodeSerializer()
+
+    class Meta:
+        model = LineageEdge
+        fields = "__all__"

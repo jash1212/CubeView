@@ -129,6 +129,7 @@ class UserDatabaseConnection(models.Model):
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    last_synced_at = models.DateTimeField(null=True, blank=True)
     def __str__(self):
         return f"{self.name} ({self.db_type})"
 
@@ -217,3 +218,53 @@ class RuleEngine(models.Model):
     natural_language = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+# models/lineage.py
+
+class LineageNode(models.Model):
+    TABLE = "table"
+    FIELD = "field"
+
+    NODE_TYPES = [
+        (TABLE, "Table"),
+        (FIELD, "Field"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    connection = models.ForeignKey(UserDatabaseConnection, on_delete=models.CASCADE)
+
+    # canonical foreign keys (preferred)
+    table = models.ForeignKey("DataTable", on_delete=models.CASCADE, null=True, blank=True, related_name="lineage_nodes")
+    column = models.ForeignKey("ColumnMetadata", on_delete=models.CASCADE, null=True, blank=True)
+
+    # fallback fields (if table/column aren't in DataTable/ColumnMetadata)
+    table_name = models.CharField(max_length=255, blank=True, null=True)
+    column_name = models.CharField(max_length=255, null=True, blank=True)
+
+    node_type = models.CharField(max_length=10, choices=NODE_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (
+            ("user", "connection", "table", "column"),
+            ("user", "connection", "table_name", "column_name"),
+        )
+
+    def label(self):
+        if self.node_type == self.FIELD:
+            return f"{self.table_name or (self.table.name if self.table else '')}.{self.column_name or (self.column.name if self.column else '')}"
+        return self.table_name or (self.table.name if self.table else "")
+
+    def __str__(self):
+        return self.label()
+
+class LineageEdge(models.Model):
+    from_node = models.ForeignKey(LineageNode, on_delete=models.CASCADE, related_name="out_edges")
+    to_node = models.ForeignKey(LineageNode, on_delete=models.CASCADE, related_name="in_edges")
+
+    # Source of relationship: 'foreign_key', 'sql', 'dbt', 'airflow', 'manual'
+    source = models.CharField(max_length=50, default="sql")
+    detail = models.TextField(blank=True, null=True)  # SQL snippet, FK columns, or description
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("from_node", "to_node", "source", "detail")

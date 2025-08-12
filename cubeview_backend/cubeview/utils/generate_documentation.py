@@ -6,12 +6,32 @@ MODEL = "gemini-2.5-pro"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 
 def generate_table_documentation(table_name, column_names):
-    prompt = (
-    f"Write clean, human-friendly documentation for a table named '{table_name}', "
-    f"which has the following columns:\n\n"
-    f"{chr(10).join(f'- {col}' for col in column_names)}\n\n"
-    "Describe what the table is likely used for, and what each column means."
-)
+    prompt = f"""
+You are a professional data documentation expert tasked with creating
+clear, business-friendly documentation for a database table.
+
+Table Name: {table_name}
+
+Columns:
+{chr(10).join(f"- {col}" for col in column_names)}
+
+Your goal:
+1. Write a short, human-readable overview of the table’s purpose and likely use cases.
+2. For each column, give a one-sentence description of what it likely represents,
+   keeping it simple and avoiding unnecessary technical jargon.
+3. If a column name is ambiguous, provide your best guess based on common naming patterns.
+4. Avoid filler phrases like "This column stores data".
+5. Keep the tone concise, professional, and easy for non-technical stakeholders to understand.
+
+Format your response as:
+
+## Table Overview
+[One paragraph overview]
+
+## Column Descriptions
+- column_name: description
+- column_name: description
+"""
 
     headers = {
         "Content-Type": "application/json",

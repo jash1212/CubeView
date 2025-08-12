@@ -13,11 +13,11 @@ from .views import (
     RegisterView,
     field_metrics,
     get_db_connection,
+    
     health_score_trend,
     incident_detail,
     incident_trend,
     run_bulk_anomaly_check,
-    
     run_quality_checks,
     get_user_incidents,
     dashboard_overview,
@@ -31,9 +31,9 @@ from .views import (
     incident_filter_options,
     generate_docs,  # ✅ Correct view
 )
+from .utils import (lineage,reports)
 
 urlpatterns = [
-    
     # ✅ Auth
     path("register/", RegisterView.as_view(), name="register"),
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -65,13 +65,12 @@ urlpatterns = [
     # ✅ Documentation Generation
     path("generate-docs/<int:table_id>/", generate_docs, name="generate-docs"),
     path("calculate-metrics/<int:table_id>/", calculate_metrics),
-    path("metrics/<int:table_id>/", field_metrics, name="field-metrics"),    path("incident-trend/", incident_trend, name="incident-trend"),
+    path("metrics/<int:table_id>/", field_metrics, name="field-metrics"),
+    path("incident-trend/", incident_trend, name="incident-trend"),
     path("health-score-trend/", health_score_trend, name="health-score-trend"),
     path("anomaly-check-all/", run_bulk_anomaly_check),
     path("rules/", DataQualityRuleListCreateView.as_view(), name="rule-list-create"),
     path("rules/<int:pk>/", DataQualityRuleDetailView.as_view(), name="rule-detail"),
-    
-
-
-
+    path("lineage/", lineage.get_lineage_graph, name="lineage-default"),
+    path("report-summary/", reports.ReportSummaryAPIView.as_view(), name = "report-summary")
 ]
