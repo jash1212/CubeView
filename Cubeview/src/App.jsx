@@ -15,6 +15,8 @@ import IncidentDetail from "@/pages/IncidentDetail";
 import TableDetail from "@/pages/TableDetail";
 import LandingPage from "@/pages/LandingPage"; // ✅ Added landing page route
 import RuleEngine from "./pages/RuleEngine";
+import LineageGraph from "./pages/LineageGraph";
+import ReportDashboard from "./pages/Reports";
 
 function App() {
   return (
@@ -36,6 +38,11 @@ function App() {
         >
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="tables/:tableId" element={<TableDetail />} />
+          // in your router or App.jsx
+          <Route path="lineage" element={<LineageGraph />} />
+          
+          {/* <Route path="lineage" element={<LineageGraph />} /> */}
+
 
           <Route path="datasets" element={<Datasets />} />
           <Route path="incidents" element={<Incidents />} />
@@ -47,6 +54,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="tables" element={<TablesList />} />
           <Route path="connect-database" element={<ConnectDatabase />} />
+          <Route path="reports" element={<ReportDashboard/>}></Route>
         </Route>
       </Routes>
     </Router>

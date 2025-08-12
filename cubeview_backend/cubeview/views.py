@@ -36,6 +36,8 @@ from .models import (
     FieldMetric,
     Incident,
     DataQualityCheck,
+    LineageEdge,
+    LineageNode,
     MetricHistory,
     RuleEngine,
     RuleExecutionHistory,
@@ -48,6 +50,8 @@ from .models import (
 # Local App: Serializers
 from .serializers import (
     DataQualityRuleSerializer,
+    LineageEdgeSerializer,
+    LineageNodeSerializer,
     UserSerializer,
     RegisterSerializer,
     DataTableSerializer,

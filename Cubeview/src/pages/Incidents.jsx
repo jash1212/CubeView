@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import FancyLoader from "@/components/FancyLoader"; // adjust path as needed
-
+import FancyLoader from "@/components/FancyLoader";
 
 const Incidents = () => {
   const [availableTables, setAvailableTables] = useState([]);
@@ -23,8 +22,14 @@ const Incidents = () => {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ total: 0, resolved: 0, ongoing: 0 });
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
+
   const navigate = useNavigate();
 
+  // Fetch filter options
   useEffect(() => {
     let active = true;
     const fetchOptions = async () => {
@@ -43,12 +48,13 @@ const Incidents = () => {
     };
   }, []);
 
+  // Fetch incidents when filters or page changes
   useEffect(() => {
     const timeout = setTimeout(() => {
       fetchIncidents();
     }, 200);
     return () => clearTimeout(timeout);
-  }, [filters]);
+  }, [filters, page]);
 
   const fetchIncidents = async () => {
     setLoading(true);
@@ -57,14 +63,19 @@ const Incidents = () => {
       if (filters.status) params.append("status", filters.status);
       if (filters.table) params.append("table", filters.table);
       if (filters.type) params.append("type", filters.type);
+      params.append("page", page);
+      params.append("page_size", pageSize);
 
       const res = await api.get(`/api/incidents/?${params.toString()}`);
       const results = res.data?.results || [];
+      const count = res.data?.count || results.length;
 
       setIncidents(results);
+      setTotalPages(Math.max(1, Math.ceil(count / pageSize)));
+
       const resolved = results.filter((i) => i.status === "resolved").length;
       const ongoing = results.filter((i) => i.status === "ongoing").length;
-      setSummary({ total: results.length, resolved, ongoing });
+      setSummary({ total: count, resolved, ongoing });
     } catch (err) {
       console.error("Failed to fetch incidents", err);
       setIncidents([]);
@@ -95,8 +106,9 @@ const Incidents = () => {
       </h1>
 
       <div className="flex gap-6 text-xm text-gray-800">
-        <span>Total: <strong>{summary.total}</strong></span>
-        <span>Resolved: <strong>{summary.resolved}</strong></span>
+        <span><strong>Overall : </strong>Total: <strong>{summary.total}</strong></span>
+        <span></span>
+        <span><strong>In this Page : </strong>Resolved: <strong>{summary.resolved}</strong></span>
         <span>Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 
@@ -166,96 +178,112 @@ const Incidents = () => {
       {loading ? (
         <FancyLoader message="Fetching incidents..." />
       ) : incidents.length === 0 ? (
-
         <div className="text-center text-sm text-gray-500 mt-8">
           No incidents found.
         </div>
       ) : (
-        <motion.div
-          layout
-          className="grid grid-cols-1 gap-4"
-        >
-          {incidents
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .map((incident, idx) => (
-              <motion.div
-                key={incident.id}
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: idx * 0.05 }}
-              >
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition rounded-xl">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/incidents/${incident.id}`)}
-                      >
-                        <h2 className="text-lg font-bold text-blue-500 hover:underline">
-                          {incident.title}
-                        </h2>
-                        <p className="text-sm text-gray-600">{incident.description}</p>
-                      </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${incident.status === "resolved"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-yellow-100 text-yellow-700"
-                          }`}
-                      >
-                        {incident.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="text-sm text-gray-500 space-y-1">
-                      <p>
-                        Table:{" "}
-                        <span className="font-medium">{incident.table || "N/A"}</span>
-                      </p>
-                      <p>Created: {new Date(incident.created_at).toLocaleString()}</p>
-                      {incident.resolved_at && (
-                        <p>
-                          Resolved: {new Date(incident.resolved_at).toLocaleString()}
-                        </p>
-                      )}
-                      {incident.type && (
-                        <p>
-                          Type:{" "}
-                          <span className="text-indigo-600 font-medium">{incident.type}</span>
-                        </p>
-                      )}
-                      {incident.severity && (
-                        <p>
-                          Severity:{" "}
-                          <span
-                            className={cn(
-                              "font-semibold capitalize",
-                              incident.severity === "high" && "text-red-600",
-                              incident.severity === "medium" && "text-yellow-600",
-                              incident.severity === "low" && "text-green-600"
-                            )}
-                          >
-                            {incident.severity}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-
-                    {incident.status === "ongoing" && (
-                      <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => resolveIncident(incident.id)}
+        <>
+          <motion.div layout className="grid grid-cols-1 gap-4">
+            {incidents
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .map((incident, idx) => (
+                <motion.div
+                  key={incident.id}
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4, delay: idx * 0.05 }}
+                >
+                  <Card className="border border-gray-200 shadow-md hover:shadow-lg transition rounded-xl">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/incidents/${incident.id}`)}
                         >
-                          Mark as Resolved
-                        </Button>
-                      </motion.div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-        </motion.div>
+                          <h2 className="text-lg font-bold text-blue-500 hover:underline">
+                            {incident.title}
+                          </h2>
+                          <p className="text-sm text-gray-600">{incident.description}</p>
+                        </div>
+                        <span
+                          className={`text-xs px-2 py-1 rounded font-medium ${
+                            incident.status === "resolved"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {incident.status.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-gray-500 space-y-1">
+                        <p>
+                          Table:{" "}
+                          <span className="font-medium">{incident.table || "N/A"}</span>
+                        </p>
+                        <p>Created: {new Date(incident.created_at).toLocaleString()}</p>
+                        {incident.resolved_at && (
+                          <p>
+                            Resolved: {new Date(incident.resolved_at).toLocaleString()}
+                          </p>
+                        )}
+                        {incident.type && (
+                          <p>
+                            Type:{" "}
+                            <span className="text-indigo-600 font-medium">{incident.type}</span>
+                          </p>
+                        )}
+                        {incident.severity && (
+                          <p>
+                            Severity:{" "}
+                            <span
+                              className={cn(
+                                "font-semibold capitalize",
+                                incident.severity === "high" && "text-red-600",
+                                incident.severity === "medium" && "text-yellow-600",
+                                incident.severity === "low" && "text-green-600"
+                              )}
+                            >
+                              {incident.severity}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+
+                      {incident.status === "ongoing" && (
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => resolveIncident(incident.id)}
+                          >
+                            Mark as Resolved
+                          </Button>
+                        </motion.div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+          </motion.div>
+
+          {/* Pagination controls */}
+          <div className="flex justify-center gap-4 mt-6">
+            <Button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page === 1} className='bg-blue-500 hover:bg-blue-600'
+            >
+              Previous
+            </Button>
+            <span>Page {page} of {totalPages}</span>
+            <Button
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={page === totalPages} className='bg-blue-500 hover:bg-blue-600'
+            >
+              Next
+            </Button>
+          </div>
+        </>
       )}
     </motion.div>
   );
