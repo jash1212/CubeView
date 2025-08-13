@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import DashboardTrends from "./DashboardTrends";
 import { motion } from "framer-motion";
+import FancyLoader from "../components/FancyLoader";
 
 const PIE_COLORS = ["#6366f1", "#34d399", "#facc15", "#f97316", "#06b6d4", "#fbbf24"];
 
@@ -44,10 +45,17 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [showMLDetails, setShowMLDetails] = useState(false);
 
+  const [loading, setLoading] = useState(true); 
 
-  useEffect(() => {
-    fetchAllData();
+   useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await fetchAllData();
+      setLoading(false);
+    };
+    loadData();
   }, []);
+
 
   const fetchAllData = async () => {
     await Promise.all([
@@ -58,32 +66,32 @@ export default function Dashboard() {
     ]);
   };
 
-  const runChecks = async () => {
-    setRefreshing(true);
-    try {
-      await api.post("/api/run-quality-checks/");
-      await fetchAllData();
-    } catch (err) {
-      console.error("Run checks failed", err);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  // const runChecks = async () => {
+  //   setRefreshing(true);
+  //   try {
+  //     await api.post("/api/run-quality-checks/");
+  //     await fetchAllData();
+  //   } catch (err) {
+  //     console.error("Run checks failed", err);
+  //   } finally {
+  //     setRefreshing(false);
+  //   }
+  // };
 
-  const runMLCheckAllTables = async () => {
-    setLoadingML(true);
-    try {
-      const response = await api.post("/api/anomaly-check-all/");
-      const sorted = [...response.data.results].sort((a, b) => b.anomaly - a.anomaly);
-      setMlResults(sorted);
-      await fetchIncidentSummary();
-    } catch (err) {
-      console.error("ML Check Failed", err);
-      setMlResults([]);
-    } finally {
-      setLoadingML(false);
-    }
-  };
+  // const runMLCheckAllTables = async () => {
+  //   setLoadingML(true);
+  //   try {
+  //     const response = await api.post("/api/anomaly-check-all/");
+  //     const sorted = [...response.data.results].sort((a, b) => b.anomaly - a.anomaly);
+  //     setMlResults(sorted);
+  //     await fetchIncidentSummary();
+  //   } catch (err) {
+  //     console.error("ML Check Failed", err);
+  //     setMlResults([]);
+  //   } finally {
+  //     setLoadingML(false);
+  //   }
+  // };
 
   const normalize = (str) => str.toLowerCase().replace(/ /g, "_");
 
@@ -140,21 +148,28 @@ export default function Dashboard() {
   };
 
   const handleRunAllChecks = async () => {
-  setRefreshing(true);
-  setLoadingML(true);
-  try {
-    await api.post("/api/run-quality-checks/");
-    const response = await api.post("/api/anomaly-check-all/");
-    const sorted = [...response.data.results].sort((a, b) => b.anomaly - a.anomaly);
-    setMlResults(sorted);
-    await fetchAllData();
-  } catch (err) {
-    console.error("Running all checks failed", err);
-  } finally {
-    setRefreshing(false);
-    setLoadingML(false);
+    setRefreshing(true);
+    setLoadingML(true);
+    try {
+      await api.post("/api/run-quality-checks/");
+      const response = await api.post("/api/anomaly-check-all/");
+      const sorted = [...response.data.results].sort((a, b) => b.anomaly - a.anomaly);
+      setMlResults(sorted);
+      await fetchAllData();
+    } catch (err) {
+      console.error("Running all checks failed", err);
+    } finally {
+      setRefreshing(false);
+      setLoadingML(false);
+    }
+  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <FancyLoader message="Fetching Data..." /> {/* ✅ Full-screen loader */}
+      </div>
+    );
   }
-};
 
   return (
     <motion.div
@@ -164,25 +179,25 @@ export default function Dashboard() {
       transition={{ duration: 0.6 }}
     >
       <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-800">Dashboard Overview</h1>
+        <h1 className="text-4xl font-bold tracking-tight text-gray-700">Dashboard Overview</h1>
         <div className="flex gap-4">
           {mlResults?.length > 0 && (
-  <div className="mt-4 mb-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm flex items-center justify-between shadow-sm">
-    <div className="flex items-center space-x-2 text-red-700">
-      <span className="text-lg"></span>
-      <span>
-        <b>{mlResults.filter(r => r.anomaly).length}</b> anomalies detected by ML in{" "}
-        <b>{mlResults.length}</b> tables.
-      </span>
-    </div>
-    <button
-      onClick={() => setShowMLDetails(prev => !prev)}
-      className="text-sm text-red-600 underline hover:text-red-800"
-    >
-      {showMLDetails ? "Hide details" : "View details"}
-    </button>
-  </div>
-)}
+            <div className="mt-4 mb-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm flex items-center justify-between shadow-sm">
+              <div className="flex items-center space-x-2 text-red-700">
+                <span className="text-lg"></span>
+                <span>
+                  <b>{mlResults.filter(r => r.anomaly).length}</b> anomalies detected by ML in{" "}
+                  <b>{mlResults.length}</b> tables.
+                </span>
+              </div>
+              {/* <button
+                onClick={() => setShowMLDetails(prev => !prev)}
+                className="text-sm text-red-600 underline hover:text-red-800"
+              >
+                {showMLDetails ? "Hide details" : "View details"}
+              </button> */}
+            </div>
+          )}
 
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -222,25 +237,25 @@ export default function Dashboard() {
       </div>
 
       {showMLDetails && (
-  <motion.div
-    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.6 }}
-  >
-    {mlResults.filter(r => r.anomaly).map((res, idx) => (
-      <Card key={idx} className="p-4 border-l-4 border-red-400 bg-white shadow">
-        <h3 className="text-sm font-semibold text-red-700 mb-1 truncate">{res.table_name}</h3>
-        <div className="text-xs text-gray-700 space-y-1">
-          <div>Null %: {res.null_percent}</div>
-          <div>Volume: {res.volume}</div>
-          <div>Schema Drift: {res.schema_change ? "Yes" : "No"}</div>
-          <div>Confidence: {res.confidence ?? "?"}%</div>
-        </div>
-      </Card>
-    ))}
-  </motion.div>
-)}
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+        >
+          {mlResults.filter(r => r.anomaly).map((res, idx) => (
+            <Card key={idx} className="p-4 border-l-4 border-red-400 bg-white shadow">
+              <h3 className="text-sm font-semibold text-red-700 mb-1 truncate">{res.table_name}</h3>
+              <div className="text-xs text-gray-700 space-y-1">
+                <div>Null %: {res.null_percent}</div>
+                <div>Volume: {res.volume}</div>
+                <div>Schema Drift: {res.schema_change ? "Yes" : "No"}</div>
+                <div>Confidence: {res.confidence ?? "?"}%</div>
+              </div>
+            </Card>
+          ))}
+        </motion.div>
+      )}
 
 
       {/* Incident Pie + Health + Table */}

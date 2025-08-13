@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Download } from "lucide-react";
 import api from "../api";
+import FancyLoader from "../components/FancyLoader";
 
 
 // NOTE: install these packages if you haven't already:
@@ -141,7 +142,7 @@ export default function ReportDashboard() {
     }
   };
 
-  if (loading) return <div className="p-6">Loading report...</div>;
+  if (loading) return <FancyLoader message="Fetching Reports..." />;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
   if (!data) return <div className="p-6">No data available</div>;
 
@@ -149,7 +150,7 @@ export default function ReportDashboard() {
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header + Download button */}
       <div className="flex items-center justify-between gap-4">
-        <motion.h1 className="text-3xl font-bold text-gray-800" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.h1 className="text-3xl font-bold text-gray-700" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           Data Quality Report
         </motion.h1>
 

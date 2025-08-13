@@ -8,12 +8,17 @@ import ReactFlow, {
   useEdgesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function LineageGraph() {
   const [graphData, setGraphData] = useState(null);
   const [error, setError] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const future= true;
 
   useEffect(() => {
     async function fetchLineage() {
@@ -71,6 +76,35 @@ export default function LineageGraph() {
 
     fetchLineage();
   }, [setEdges, setNodes]);
+
+  if(future){
+    return( <div className="flex justify-center items-center h-[70vh] px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card className="max-w-md shadow-lg rounded-2xl border border-gray-200">
+          <CardContent className="flex flex-col items-center text-center p-6 space-y-4">
+            <div className="bg-yellow-100 p-4 rounded-full">
+              <AlertTriangle className="w-10 h-10 text-yellow-600" />
+            </div>
+            <h2 className="text-2xl font-bold">Data Lineage</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              🚧 This feature will be available in the next release.
+              <br />
+              The backend is ready — UI coming soon!
+            </p>
+            <Button disabled className="opacity-70">
+              Coming Soon
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+  
+}
 
   if (error)
     return (

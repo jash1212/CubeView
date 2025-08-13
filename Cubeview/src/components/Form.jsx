@@ -63,7 +63,7 @@ function Form({ route, method }) {
       >
         <Card className="backdrop-blur-md bg-white/60 border border-gray-300 rounded-xl shadow-xl p-6">
           <CardHeader>
-            <CardTitle className="text-3xl text-center text-gray-800 font-bold tracking-wide">
+            <CardTitle className="text-3xl text-center text-gray-700 font-bold tracking-wide">
               {name}
             </CardTitle>
           </CardHeader>
@@ -74,7 +74,7 @@ function Form({ route, method }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
+                className="bg-white border border-gray-300 text-gray-700 placeholder-gray-500"
               />
               {method !== "login" && (
                 <Input

@@ -31,10 +31,10 @@ const navItems = [
   { icon: <Table size={20} />, label: "Table Explorer", path: "/table-explorer" },
   { icon: <AlertTriangle size={20} />, label: "Incidents", path: "/incidents" },
   { icon: <CheckCircle size={20} />, label: "Rule Engine", path: "/rules" },
-  { icon: <CheckCircle size={20} />, label: "Quality Checks", path: "/quality-checks" },
-  { icon: <Tags size={20} />, label: "Tags", path: "/tags" },
+  // { icon: <CheckCircle size={20} />, label: "Quality Checks", path: "/quality-checks" },
+  // { icon: <Tags size={20} />, label: "Tags", path: "/tags" },
   { icon: <LineChart size={20} />, label: "Lineage", path: "/lineage" },
-  { icon: <Database size={20} />, label: "Sources", path: "/sources" },
+  // { icon: <Database size={20} />, label: "Sources", path: "/sources" },
   { icon: <FileText size={20} />, label: "Reports", path: "/reports" },
   { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
 ];
