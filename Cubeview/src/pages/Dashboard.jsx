@@ -23,7 +23,7 @@ const INCIDENT_TYPES = [
   "schema_drift",
   "field_health",
   "custom",
-  "job_failure",
+  // "job_failure",
 ];
 
 const LABELS = {
@@ -32,7 +32,7 @@ const LABELS = {
   schema_drift: "Schema Drift",
   field_health: "Field Health",
   custom: "Custom",
-  job_failure: "Job Failure",
+  job_failure: " ",  
 };
 
 export default function Dashboard() {
@@ -56,7 +56,6 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-
   const fetchAllData = async () => {
     await Promise.all([
       fetchDashboard(),
@@ -65,6 +64,7 @@ export default function Dashboard() {
       fetchRecentIncidents(),
     ]);
   };
+  
 
   // const runChecks = async () => {
   //   setRefreshing(true);
@@ -94,11 +94,17 @@ export default function Dashboard() {
   // };
 
   const normalize = (str) => str.toLowerCase().replace(/ /g, "_");
+  
+
+
+  const isNoDB = !summary || !summary.data_overview || Object.keys(summary.data_overview).length === 0;
 
   const fetchDashboard = async () => {
     try {
       const res = await api.get("/api/dashboard-data/");
       setSummary(res.data);
+      
+      
     } catch (err) {
       console.error("Dashboard fetch error", err);
     }
@@ -170,6 +176,30 @@ export default function Dashboard() {
       </div>
     );
   }
+  if (loading) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <FancyLoader message="Fetching Data..." />
+    </div>
+  );
+}
+
+if (isNoDB) {
+  return (
+    <div className="flex flex-col items-center justify-center h-screen space-y-4 text-center">
+      <h2 className="text-2xl font-semibold text-gray-700">
+        ⚠️ No Database Connected
+      </h2>
+      <p className="text-gray-500">Please connect a database in Settings to view your dashboard.</p>
+      <Button
+        onClick={() => window.location.href = "/settings"} // 🔑 adjust route if needed
+        className="bg-blue-500 hover:bg-blue-400 text-white shadow-lg rounded-xl"
+      >
+        Connect Database
+      </Button>
+    </div>
+  );
+}
 
   return (
     <motion.div
@@ -214,8 +244,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-        {["sources", "tables", "fields", "jobs"].map((key, index) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {["sources", "tables", "fields"].map((key, index) => (
           <motion.div
             key={key}
             initial={{ opacity: 0, scale: 0.95 }}

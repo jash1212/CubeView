@@ -41,9 +41,7 @@ Format your response as:
     data = {
         "contents": [
             {
-                "parts": [
-                    {"text": prompt}
-                ]
+                "parts": [{"text": prompt}]
             }
         ]
     }
@@ -52,8 +50,50 @@ Format your response as:
         response = requests.post(URL, headers=headers, json=data)
         if response.status_code == 200:
             result = response.json()
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            return f"Error generating documentation: {response.status_code} - {response.text}"
-    except Exception as e:
-        return f"Error generating documentation: {str(e)}"
+
+            text_output = ""
+            if "candidates" in result and result["candidates"]:
+                parts = result["candidates"][0].get("content", {}).get("parts", [])
+                for p in parts:
+                    if "text" in p:
+                        text_output += p["text"] + "\n"
+
+            if text_output.strip():
+                return text_output.strip()
+
+        # === If Gemini failed or empty, fallback to auto-generation ===
+        auto_doc = f"""## Table Overview
+This table, **{table_name}**, stores structured information with {len(column_names)} fields.  
+
+## Column Descriptions
+"""
+        for col in column_names:
+            if "id" in col.lower():
+                desc = "Unique identifier for the record."
+            elif "name" in col.lower():
+                desc = "Name or label associated with the record."
+            elif "date" in col.lower() or "time" in col.lower():
+                desc = "Date/time information related to the record."
+            elif "email" in col.lower():
+                desc = "Email address field."
+            elif "status" in col.lower():
+                desc = "Current state or condition of the record."
+            elif "count" in col.lower() or "num" in col.lower():
+                desc = "Numeric value or quantity field."
+            else:
+                desc = "General attribute of the record."
+            auto_doc += f"- {col}: {desc}\n"
+
+        return auto_doc.strip()
+
+    except Exception:
+        # Final safe fallback: still auto-generate docs
+        auto_doc = f"""## Table Overview
+This table, **{table_name}**, stores structured information with {len(column_names)} fields.  
+
+## Column Descriptions
+"""
+        for col in column_names:
+            auto_doc += f"- {col}: General attribute of the record.\n"
+
+        return auto_doc.strip()

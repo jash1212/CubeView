@@ -154,7 +154,7 @@ export default function ReportDashboard() {
           Data Quality Report
         </motion.h1>
 
-        <motion.button
+        {/* <motion.button
           ref={btnRef}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -163,7 +163,7 @@ export default function ReportDashboard() {
         >
           <Download size={16} />
           <span className="font-medium">Download PDF</span>
-        </motion.button>
+        </motion.button> */}
       </div>
 
       {/* Content that will be screenshotted into PDF */}

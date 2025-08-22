@@ -328,11 +328,10 @@ export default function RuleEngine() {
       {rules.length === 0 ? (
         <div className="flex justify-center items-center h-[60vh]">
           <div className="bg-muted/30 p-8 rounded-2xl shadow-sm max-w-md text-center">
-            <h3 className="text-xl font-bold mb-2">🚧 Coming Soon</h3>
+            <h3 className="text-xl font-bold mb-2">No Rule Created</h3>
             <p className="text-muted-foreground">
               No rules created yet.
-              The backend is ready, but UI features will be enhanced in the next
-              release.
+              Create a new rule to get started.
             </p>
           </div>
         </div>

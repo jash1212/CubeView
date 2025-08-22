@@ -5,7 +5,7 @@ import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import LoadingIndicator from "./LoadingIndicator";
+import FancyLoader from "./FancyLoader";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import NeuralBackground from "./NeuralBackground";
@@ -94,7 +94,7 @@ function Form({ route, method }) {
                 required
                 className="bg-white border border-gray-300 text-gray-800 placeholder-gray-500"
               />
-              {loading && <LoadingIndicator />}
+              {loading && <FancyLoader/>}
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Button
                   type="submit"
