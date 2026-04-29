@@ -1028,7 +1028,6 @@ class DataQualityRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
 GEMINI_API_KEY = os.getenv("API_KEY")
 MODEL = "gemini-2.5-pro"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_rule_from_prompt(request):

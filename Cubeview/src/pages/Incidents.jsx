@@ -105,10 +105,9 @@ const Incidents = () => {
         Incident Management
       </h1>
 
-      <div className="flex gap-6 text-xm text-gray-600">
-        <span><strong>Overall : </strong>Total: <strong>{summary.total}</strong></span>
-        <span></span>
-        <span><strong>In this Page : </strong>Resolved: <strong>{summary.resolved}</strong></span>
+      <div className="flex gap-6 text-xm text-gray-800">
+        <span>Total: <strong>{summary.total}</strong></span>
+        <span>Resolved: <strong>{summary.resolved}</strong></span>
         <span>Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 
