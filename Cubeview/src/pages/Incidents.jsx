@@ -101,14 +101,13 @@ const Incidents = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 text-transparent bg-clip-text">
-        🧠 Incident Management
+      <h1 className="text-4xl font-bold tracking-tight text-gray-700">
+        Incident Management
       </h1>
 
       <div className="flex gap-6 text-xm text-gray-800">
-        <span><strong>Overall : </strong>Total: <strong>{summary.total}</strong></span>
-        <span></span>
-        <span><strong>In this Page : </strong>Resolved: <strong>{summary.resolved}</strong></span>
+        <span>Total: <strong>{summary.total}</strong></span>
+        <span>Resolved: <strong>{summary.resolved}</strong></span>
         <span>Ongoing: <strong>{summary.ongoing}</strong></span>
       </div>
 

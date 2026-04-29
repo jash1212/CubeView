@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import FancyLoader from "../components/FancyLoader";
 
 export default function TableExplorer() {
   const navigate = useNavigate();
@@ -18,9 +19,16 @@ export default function TableExplorer() {
   const [loadingTables, setLoadingTables] = useState(true);
   const [generatedDescription, setGeneratedDescription] = useState("");
   const [docLoadingId, setDocLoadingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
-    fetchTables();
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchTables()]);
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -78,6 +86,13 @@ export default function TableExplorer() {
       setDocLoadingId(null);
     }
   };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <FancyLoader message="Fetching Tables..." />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full gap-6 p-6 bg-white min-h-screen">
@@ -88,7 +103,7 @@ export default function TableExplorer() {
         transition={{ duration: 0.5 }}
         className="w-1/4 bg-white border rounded-xl p-4 shadow-md overflow-y-auto"
       >
-        <h2 className="text-lg font-semibold mb-4">📁 Tables</h2>
+        <h2 className="text-xl font-semibold mb-4">Tables</h2>
         {loadingTables ? (
           <Skeleton className="h-48 w-full rounded-xl" />
         ) : tables.length === 0 ? (
@@ -101,7 +116,7 @@ export default function TableExplorer() {
                 className={cn(
                   "group px-3 py-2 rounded-lg hover:bg-blue-50 border cursor-pointer transition-all duration-200",
                   table.id === selectedTableId &&
-                    "bg-blue-100 text-blue-800 font-semibold border-blue-300"
+                  "bg-blue-100 text-blue-800 font-semibold border-blue-300"
                 )}
               >
                 <div className="flex justify-between items-center">
@@ -177,11 +192,12 @@ export default function TableExplorer() {
             </section>
 
             {/* Columns */}
+            {/* Columns */}
             <section>
               <h3 className="font-semibold text-lg mb-2">📄 Columns</h3>
               {tableDetail.columns?.length > 0 ? (
                 <ul className="grid grid-cols-2 gap-2 text-sm">
-                  {tableDetail.columns.map((col, idx) => (
+                  {[...new Map(tableDetail.columns.map(col => [col.name, col])).values()].map((col, idx) => (
                     <li key={idx}>
                       <strong>{col.name}</strong>: {col.data_type}
                     </li>
@@ -191,6 +207,7 @@ export default function TableExplorer() {
                 <p className="text-sm text-gray-400">No columns available</p>
               )}
             </section>
+
 
             {/* Field Metrics */}
             <section>

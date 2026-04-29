@@ -1028,29 +1028,26 @@ class DataQualityRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
 GEMINI_API_KEY = os.getenv("API_KEY")
 MODEL = "gemini-2.5-pro"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_rule_from_prompt(request):
     table_id = request.data.get("table")
-    table_name = DataTable.objects.filter(id=table_id, user=request.user).first()
-
     description = request.data.get("description")
 
-    if not table_name or not description:
-        return Response(
-            {"error": "Missing 'table' or 'description' field."}, status=400
-        )
+    if not table_id or not description:
+        return Response({"error": "Missing 'table' or 'description'."}, status=400)
+
+    table = DataTable.objects.filter(id=table_id, user=request.user).first()
+    if not table:
+        return Response({"error": "Table not found for this user"}, status=404)
 
     prompt = f"""
 Act as a data quality assistant.
 
-A user works with a table named '{table_name}' and described a rule:
+A user works with a table named '{table.name}' and described a rule:
 '{description}'
 
 You must extract and return a JSON like:
-
 {{
   "rule_type": "null_check | regex_check | threshold | freshness | custom_sql",
   "column": "column_name",
@@ -1069,39 +1066,32 @@ Rules:
         "Content-Type": "application/json",
         "X-goog-api-key": GEMINI_API_KEY,
     }
-
     data = {"contents": [{"role": "user", "parts": [{"text": prompt.strip()}]}]}
 
+    raw_text = None
     try:
         response = requests.post(URL, headers=headers, json=data)
         response.raise_for_status()
         result = response.json()
-        print("🌐 Gemini API response:", result)
-
         raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
 
-        # Strip markdown fences like ```json ... ```
+        # Clean output
         raw_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text.strip())
+        match = re.search(r"\{[\s\S]*\}", raw_text)
+        if not match:
+            return Response({"error": "No JSON found in model output"}, status=500)
 
-        # No additional escaping needed — Gemini output is JSON-valid
-        parsed = json.loads(raw_text)
-
-    except Exception as parse_err:
-        print("❌ Failed to parse Gemini response:", raw_text)
+        parsed = json.loads(match.group())
+    except Exception as e:
         return Response(
             {
-                "error": f"Gemini response parsing failed: {str(parse_err)}",
-                "raw_response": raw_text,
+                "error": f"Gemini API call or parsing failed: {str(e)}",
+                "raw_response": raw_text or "<no content>",
             },
             status=500,
         )
 
-    # Validate table exists for user
-    table = DataTable.objects.filter(name=table_name, user=request.user).first()
-    if not table:
-        return Response({"error": "Table not found for this user"}, status=404)
-
-    # Save rule
+    # Save the rule
     rule = DataQualityRule.objects.create(
         user=request.user,
         table=table,

@@ -1,29 +1,43 @@
 // src/pages/RuleEngine.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Pencil, Trash } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/api";
+import FancyLoader from "@/components/FancyLoader";
 
 export default function RuleEngine() {
   const [rules, setRules] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [open, setOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [tables, setTables] = useState([]);
 
-  // ✅ FIX: Default severity changed to "info" to match a valid model choice.
-  const [form, setForm] = useState({
+  const [saving, setSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const defaultForm = {
     rule_type: "",
     table: "",
     column: "",
@@ -31,68 +45,79 @@ export default function RuleEngine() {
     severity: "info",
     schedule: "daily",
     natural_language: "",
-  });
+  };
 
-  useEffect(() => {
-    fetchRules();
-    fetchTables();
-  }, []);
+  const [form, setForm] = useState(defaultForm);
 
-  const fetchTables = async () => {
+  const fetchTables = useCallback(async () => {
     try {
       const res = await api.get("/api/tables/");
       setTables(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to fetch tables");
     }
-  };
+  }, []);
 
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     try {
       const res = await api.get("/api/rules/");
       setRules(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to fetch rules");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchRules(), fetchTables()]);
+      setLoading(false);
+    };
+    init();
+  }, [fetchRules, fetchTables]);
 
   const resetForm = () => {
-    setForm({
-      rule_type: "",
-      table: "",
-      column: "",
-      rule_logic: "",
-      severity: "info",
-      schedule: "daily",
-      natural_language: "",
-    });
+    setForm(defaultForm);
     setAiPrompt("");
     setIsEditing(false);
     setEditingId(null);
+    setSaving(false);
   };
 
   const saveRule = async () => {
+    if (saving) return; // prevent double click
+    setSaving(true);
     try {
-      const endpoint = isEditing ? `/api/rules/${editingId}/` : "/api/rules/";
+      const endpoint = isEditing
+        ? `/api/rules/${editingId}/`
+        : "/api/rules/";
       const method = isEditing ? api.patch : api.post;
+
       await method(endpoint, form);
-      toast.success(isEditing ? "Rule updated successfully" : "Rule created successfully");
+
+      toast.success(
+        isEditing ? "Rule updated successfully" : "Rule created successfully"
+      );
       resetForm();
       setOpen(false);
-      fetchRules();
+      await fetchRules();
     } catch (err) {
       const errorData = err.response?.data || {};
       const errorMessages = Object.entries(errorData)
         .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
         .join(" | ");
-      toast.error(`Failed to save rule: ${errorMessages || "Please check fields."}`);
+      toast.error(
+        `Failed to save rule: ${errorMessages || "Please check fields."}`
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
   const editRule = (rule) => {
     setForm({
       table: rule.table,
-      column: rule.column,
+      column: rule.column || "",
       rule_type: rule.rule_type,
       rule_logic: rule.rule_logic,
       severity: rule.severity,
@@ -108,50 +133,69 @@ export default function RuleEngine() {
     try {
       await api.delete(`/api/rules/${id}/`);
       toast.success("Rule deleted");
-      fetchRules();
-    } catch (err) {
+      await fetchRules();
+    } catch {
       toast.error("Delete failed");
     }
   };
 
   const generateFromAI = async () => {
     if (!aiPrompt.trim() || !form.table) {
-        toast.error("Please select a table and enter a description first.");
-        return;
+      toast.error("Please select a table and enter a description first.");
+      return;
     }
     setAiLoading(true);
     try {
       const res = await api.post("/api/generate-rule/", {
-        table: form.table,
+        table: Number(form.table), // ensure correct type
         description: aiPrompt,
       });
+      const aiRule = res.data?.rule || {};
       setForm((prev) => ({
         ...prev,
-        rule_type: res.data.rule.type,
-        column: res.data.rule.column,
-        rule_logic: res.data.rule.sql,
-        natural_language: res.data.rule.summary,
+        rule_type: aiRule.type || prev.rule_type,
+        column: aiRule.column || prev.column,
+        rule_logic: aiRule.sql || prev.rule_logic,
+        natural_language: aiRule.summary || prev.natural_language,
       }));
       toast.success("Rule generated by AI");
-    } catch (err) {
+    } catch {
       toast.error("AI generation failed");
     } finally {
       setAiLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <FancyLoader message="Fetching Rules..." />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">⚙️ Rule Engine</h2>
+        <h2 className="text-3xl font-bold text-gray-700"> Rule Engine</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className=" bg-blue-500 hover:bg-blue-600 rounded-2xl" onClick={resetForm}>{isEditing ? "Edit Rule" : "New Rule"}</Button>
+            <Button
+              className="bg-blue-500 hover:bg-blue-600 rounded-2xl"
+              onClick={resetForm}
+            >
+              {isEditing ? "Edit Rule" : "New Rule"}
+            </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Rule" : "Create a New Rule"}</DialogTitle>
+              <DialogTitle>
+                {isEditing ? "Edit Rule" : "Create a New Rule"}
+              </DialogTitle>
             </DialogHeader>
+
+            {/* Form Fields */}
             <div className="space-y-4">
               <div>
                 <Label>Table</Label>
@@ -159,7 +203,9 @@ export default function RuleEngine() {
                   value={form.table?.toString()}
                   onValueChange={(val) => setForm({ ...form, table: val })}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select table" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select table" />
+                  </SelectTrigger>
                   <SelectContent>
                     {tables.map((table) => (
                       <SelectItem key={table.id} value={table.id.toString()}>
@@ -172,20 +218,26 @@ export default function RuleEngine() {
 
               <div>
                 <Label>Column</Label>
-                <Input value={form.column || ""} onChange={(e) => setForm({ ...form, column: e.target.value })} />
+                <Input
+                  value={form.column}
+                  onChange={(e) => setForm({ ...form, column: e.target.value })}
+                />
               </div>
-              
-              {/* ✅ FIX: Changed from Input to Select to prevent invalid entries. */}
+
               <div>
                 <Label>Rule Type</Label>
                 <Select
                   value={form.rule_type}
                   onValueChange={(val) => setForm({ ...form, rule_type: val })}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select rule type" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select rule type" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="null_check">Null Check</SelectItem>
-                    <SelectItem value="regex_check">Regex Pattern Match</SelectItem>
+                    <SelectItem value="regex_check">
+                      Regex Pattern Match
+                    </SelectItem>
                     <SelectItem value="threshold">Threshold Limit</SelectItem>
                     <SelectItem value="freshness">Freshness Check</SelectItem>
                     <SelectItem value="custom_sql">Custom SQL</SelectItem>
@@ -195,15 +247,26 @@ export default function RuleEngine() {
 
               <div>
                 <Label>SQL Logic</Label>
-                <Textarea value={form.rule_logic || ""} onChange={(e) => setForm({ ...form, rule_logic: e.target.value })} />
+                <Textarea
+                  value={form.rule_logic}
+                  onChange={(e) =>
+                    setForm({ ...form, rule_logic: e.target.value })
+                  }
+                />
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Label>Severity</Label>
-                  {/* This was already correct, values match the model */}
-                  <Select value={form.severity} onValueChange={(val) => setForm({ ...form, severity: val })}>
-                    <SelectTrigger><SelectValue placeholder="Select severity" /></SelectTrigger>
+                  <Select
+                    value={form.severity}
+                    onValueChange={(val) =>
+                      setForm({ ...form, severity: val })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select severity" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="info">Info</SelectItem>
                       <SelectItem value="warning">Warning</SelectItem>
@@ -213,9 +276,15 @@ export default function RuleEngine() {
                 </div>
                 <div className="flex-1">
                   <Label>Schedule</Label>
-                  {/* ✅ FIX: Changed "weekly" to "hourly" to match model choices. */}
-                  <Select value={form.schedule} onValueChange={(val) => setForm({ ...form, schedule: val })}>
-                    <SelectTrigger><SelectValue placeholder="Select schedule" /></SelectTrigger>
+                  <Select
+                    value={form.schedule}
+                    onValueChange={(val) =>
+                      setForm({ ...form, schedule: val })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select schedule" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="hourly">Hourly</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
@@ -226,48 +295,94 @@ export default function RuleEngine() {
 
               <div>
                 <Label>💡 Describe Rule in Natural Language (for AI)</Label>
-                <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
-                <Button className="mt-2 w-full bg-blue-500 hover:bg-blue-600" onClick={generateFromAI} disabled={aiLoading}>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                />
+                <Button
+                  className="mt-2 w-full bg-blue-500 hover:bg-blue-600"
+                  onClick={generateFromAI}
+                  disabled={aiLoading}
+                >
                   {aiLoading ? "Generating..." : "Generate with AI"}
                 </Button>
               </div>
-              <Button className="w-full bg-blue-500 hover:bg-blue-600" onClick={saveRule} >
-                {isEditing ? "Update Rule" : "Save Rule"}
+
+              <Button
+                className="w-full bg-blue-500 hover:bg-blue-600"
+                onClick={saveRule}
+                disabled={saving}
+              >
+                {saving
+                  ? "Saving..."
+                  : isEditing
+                  ? "Update Rule"
+                  : "Save Rule"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {rules.map((rule) => (
-          <Card key={rule.id}>
-            <CardContent className="p-4 space-y-2">
-              <div className="flex justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">{rule.natural_language || "Rule"}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {rule.rule_type} on {rule.table_name}.{rule.column || '*'}
-                  </p>
+      {/* Rules List */}
+      {rules.length === 0 ? (
+        <div className="flex justify-center items-center h-[60vh]">
+          <div className="bg-muted/30 p-8 rounded-2xl shadow-sm max-w-md text-center">
+            <h3 className="text-xl font-bold mb-2">No Rule Created</h3>
+            <p className="text-muted-foreground">
+              No rules created yet.
+              Create a new rule to get started.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {rules.map((rule) => (
+            <Card key={rule.id}>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {rule.natural_language || "Rule"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {rule.rule_type} on {rule.table_name}.
+                      {rule.column || "*"}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => editRule(rule)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteRule(rule.id)}
+                    >
+                      <Trash className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => editRule(rule)}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => deleteRule(rule.id)}>
-                    <Trash className="w-4 h-4 text-red-500" />
-                  </Button>
+                <p className="text-xs font-mono bg-gray-100 p-1 rounded">
+                  <code>{rule.rule_logic}</code>
+                </p>
+                <div className="flex gap-2 text-xs mt-2">
+                  <span className="bg-gray-200 px-2 py-1 rounded-full">
+                    {rule.severity}
+                  </span>
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                    {rule.schedule}
+                  </span>
                 </div>
-              </div>
-              <p className="text-xs font-mono bg-gray-100 p-1 rounded"><code>{rule.rule_logic}</code></p>
-              <div className="flex gap-2 text-xs mt-2">
-                <span className="bg-gray-200 px-2 py-1 rounded-full">{rule.severity}</span>
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{rule.schedule}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

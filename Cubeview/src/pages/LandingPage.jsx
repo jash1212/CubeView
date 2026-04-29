@@ -5,66 +5,79 @@ import { Button } from "@/components/ui/button";
 import { motion, px } from "framer-motion";
 import {
   Database,
-  BarChart3,
+  FileText,
   ShieldCheck,
-  Search,
+  Table,
+  Share2,
+  BarChart3,
   Activity,
-  Sparkles,
+  BrainCircuit,
   CheckCircle,
   Zap,
-  Radar,
+  Lock,
+  Radar
 } from "lucide-react";
 import NeuralBackground from "@/components/NeuralBackground";
 
 
 const features = [
   {
-    title: "Connect Databases",
-    description: "Easily connect PostgreSQL databases with secure credentials.",
-    icon: <Database className="w-8 h-8 text-blue-500" />,
+    title: "Database Integration",
+    description: "Connect PostgreSQL and other databases securely in minutes.",
+    icon: <Database className="w-8 h-8 text-blue-600" />,
   },
   {
-    title: "Monitor Data Quality",
-    description: "Track nulls, distinct values, schema changes, and more.",
-    icon: <ShieldCheck className="w-8 h-8 text-green-500" />,
+    title: "AI-Powered Docs",
+    description: "Generate detailed table and column documentation instantly.",
+    icon: <FileText className="w-8 h-8 text-indigo-600" />,
   },
   {
-    title: "Detect Incidents",
-    description: "Catch freshness issues, schema drift, and volume anomalies.",
-    icon: <Activity className="w-8 h-8 text-red-500" />,
+    title: "Rule Engine",
+    description: "Set and automate data quality rules with SQL or templates.",
+    icon: <ShieldCheck className="w-8 h-8 text-green-600" />,
   },
   {
-    title: "Search and Filter Tables",
-    description: "Find any table or field with advanced filtering and tagging.",
-    icon: <Search className="w-8 h-8 text-purple-500" />,
+    title: "Table Explorer",
+    description: "Search, filter, and inspect your tables with ease.",
+    icon: <Table className="w-8 h-8 text-purple-600" />,
   },
   {
-    title: "Visual Health Trends",
-    description: "Track score trends and monitor incidents in real-time.",
-    icon: <BarChart3 className="w-8 h-8 text-yellow-500" />,
+    title: "Data Lineage",
+    description: "Trace data flow from source to dashboard for full transparency.",
+    icon: <Share2 className="w-8 h-8 text-orange-600" />,
   },
   {
-    title: "AI Table Docs",
-    description: "Generate documentation using AI for your datasets.",
-    icon: <Sparkles className="w-8 h-8 text-pink-500" />,
+    title: "Trends & Graphs",
+    description: "Visualize health scores, anomalies, and incident history.",
+    icon: <BarChart3 className="w-8 h-8 text-yellow-600" />,
+  },
+  {
+    title: "ML Anomalies",
+    description: "Leverage ML to detect unusual patterns before they cause issues.",
+    icon: <BrainCircuit className="w-8 h-8 text-pink-600" />,
+  },
+  {
+    title: "Incident Detection",
+    description: "Catch schema drift, freshness issues, and volume spikes.",
+    icon: <Activity className="w-8 h-8 text-red-600" />,
   },
 ];
 
 const whyCubeView = [
   {
-    title: "Built for Engineers",
-    description: "No fluff. Built with real-time observability and control.",
-    icon: <CheckCircle className="w-8 h-8 text-green-400" />,
+    title: "Trusted by Engineers",
+    description: "Purpose-built for reliability, performance, and transparency.",
+    icon: <CheckCircle className="w-8 h-8 text-green-500" />,
   },
   {
-    title: "Fast & Lightweight",
-    description: "Minimal design, lightning-fast insights.",
-    icon: <Zap className="w-8 h-8 text-yellow-400" />,
+    title: "Lightning Fast",
+    description: "Lightweight architecture ensures instant insights.",
+    icon: <Zap className="w-8 h-8 text-yellow-500" />,
   },
   {
-    title: "ML-Powered Insights",
-    description: "Leverages historical metrics to catch anomalies early.",
-    icon: <Radar className="w-8 h-8 text-blue-400" />,
+    title: "Enterprise-Grade Security",
+    description: "SOC2-ready practices and end-to-end encryption.",
+    icon: <Lock className="w-8 h-8 text-blue-500" />,
   },
 ];
 
@@ -80,7 +93,8 @@ const LandingPage = () => {
         <div className="flex items-center gap-2">
           <img src="/cubeview.png" alt="CubeView Logo" className="h-11 w-11" />
         </div>
-
+        
+ 
         <div className="flex gap-4">
           <Button
             variant="outline"
