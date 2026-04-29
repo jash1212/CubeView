@@ -93,7 +93,8 @@ const LandingPage = () => {
         <div className="flex items-center gap-2">
           <img src="/cubeview.png" alt="CubeView Logo" className="h-11 w-11" />
         </div>
-
+        
+ 
         <div className="flex gap-4">
           <Button
             variant="outline"
