@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # 📦 CubeView
 
 CubeView is a **lightweight data platform** for **cataloging**, **lineage tracking**, and running **data quality checks** with built-in **ML-based anomaly detection**.
@@ -6,14 +6,14 @@ CubeView is a **lightweight data platform** for **cataloging**, **lineage tracki
 ---
 
 ## 🚀 Features
-- 📊 **Data Cataloging** – searchable metadata for datasets.
-- 🔗 **Lineage Tracking** – trace relationships between datasets.
-- 🧹 **Automated Checks** – null spikes, schema drifts, volume drops.
-- 🤖 **Anomaly Detection** – Isolation Forest ML model.
-- 🌐 **Responsive UI** – React frontend with modern design.
-- 🔒 **Secure API** – Django REST API backend.
+-  **Data Cataloging** – searchable metadata for datasets.
+-  **Lineage Tracking** – trace relationships between datasets.
+-  **Automated Checks** – null spikes, schema drifts, volume drops.
+-  **Anomaly Detection** – Isolation Forest ML model.
+-  **Responsive UI** – React frontend with modern design.
+-  **Secure API** – Django REST API backend.
 =======
-# CubeView 🚀
+# CubeView 
 
 **CubeView** is a Data Observability and Metadata Intelligence platform designed to help teams monitor, understand, and trust their data systems.
 
@@ -21,7 +21,7 @@ It enables proactive monitoring of data quality, incident detection, metadata ma
 
 ---
 
-## 🎯 Problem Statement
+##  Problem Statement
 
 Modern data systems fail silently.
 
@@ -35,9 +35,9 @@ CubeView solves this by continuously monitoring your data systems and generating
 
 ---
 
-## ✨ Core Features
+##  Core Features
 
-### 📊 Data Health Dashboard
+###  Data Health Dashboard
 
 * Weighted Health Score System
 * Real-time incident summary
@@ -47,7 +47,7 @@ CubeView solves this by continuously monitoring your data systems and generating
 
 ---
 
-### 🔎 Data Quality Checks
+###  Data Quality Checks
 
 CubeView supports multiple check types:
 
@@ -73,7 +73,7 @@ Each check contributes to the overall health score and generates structured inci
 
 ---
 
-### 🧠 AI-Powered Rule Engine
+###  AI-Powered Rule Engine
 
 * Manual rule creation
 * AI-assisted rule generation
@@ -83,7 +83,7 @@ Each check contributes to the overall health score and generates structured inci
 
 ---
 
-### 🗂 Metadata Intelligence
+###  Metadata Intelligence
 
 * Automatic database table detection
 * PostgreSQL metadata sync
@@ -93,7 +93,7 @@ Each check contributes to the overall health score and generates structured inci
 
 ---
 
-### 🔗 Data Lineage (Production-Ready Model)
+###  Data Lineage (Production-Ready Model)
 
 * Table-level lineage
 * Designed for field-level lineage extension
@@ -123,7 +123,7 @@ PostgreSQL
 
 ---
 
-## ⚡ Quick Setup
+##  Quick Setup
 
 
 ### 1️⃣ Clone Repository
