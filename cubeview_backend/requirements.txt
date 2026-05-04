@@ -15,9 +15,7 @@ django-cors-headers==4.3.1
 # Utility Libraries
 python-dotenv==1.0.1
 
-# For Scheduled Tasks (Optional if using)
-celery==5.3.6
-django-celery-beat==2.5.0
+
 
 # For API Testing (Optional)
 requests==2.31.0
