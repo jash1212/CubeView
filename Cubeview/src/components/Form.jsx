@@ -17,7 +17,6 @@ function Form({ route, method }) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  console.log(5 + + "5")
 
   const name = method === "login" ? "Login" : "Register";
 
